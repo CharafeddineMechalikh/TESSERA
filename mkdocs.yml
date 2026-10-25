@@ -25,11 +25,12 @@ markdown_extensions:
   - pymdownx.superfences:
       custom_fences:
         - name: mermaid
-          class: mermaid
+          class: tessera-mermaid
           format: !!python/name:pymdownx.superfences.fence_code_format
 
 extra_javascript:
   - https://unpkg.com/mermaid@10.9.1/dist/mermaid.min.js
+  - javascripts/mermaid.js
 
 nav:
   - Home: index.md

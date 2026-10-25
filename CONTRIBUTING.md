@@ -109,6 +109,11 @@ mkdocs serve
 `mkdocs build --strict` treats a broken link or a missing page as an error, and
 CI runs that build on every change to `docs/` or `mkdocs.yml`.
 
+Diagrams are written as ordinary ` ```mermaid ` fences. MkDocs emits them under a
+private class and `docs/javascripts/mermaid.js` renders them in the browser, so a
+green strict build does not prove a diagram draws. Open the page in a browser when
+you change one; a diagram that fails to parse shows its own error text.
+
 ## Style
 
 - Python 3.12. Standard library first; justify a new dependency in the pull
