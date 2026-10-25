@@ -1,3 +1,7 @@
+---
+description: "Tessera process model: the web coordinator, capture and generation subprocesses, isolated worker clusters, and the run lifecycle."
+---
+
 # Tessera architecture
 
 ## Process model

@@ -1,3 +1,7 @@
+---
+description: "Every Tessera environment variable and validator rule, with worked examples of valid and rejected configurations."
+---
+
 # Configuration: environment variables and limits
 
 All of Tessera's limits live in `distributed_llm/config.py`. Every one is

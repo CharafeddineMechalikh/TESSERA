@@ -90,6 +90,25 @@ python -m pytest
 - Diagrams are Mermaid so GitHub renders them inline.
 - Prose avoids em dashes.
 
+### The documentation site
+
+The site is built from `docs/` with MkDocs and the Material theme. Preview it
+locally with the same pinned toolchain CI uses:
+
+```bash
+python -m venv .venv-docs
+# Windows
+.venv-docs\Scripts\activate
+# Linux or macOS
+source .venv-docs/bin/activate
+
+pip install -r requirements-docs.txt
+mkdocs serve
+```
+
+`mkdocs build --strict` treats a broken link or a missing page as an error, and
+CI runs that build on every change to `docs/` or `mkdocs.yml`.
+
 ## Style
 
 - Python 3.12. Standard library first; justify a new dependency in the pull

@@ -1,0 +1,44 @@
+site_name: Tessera
+site_description: Distributed LLM inference across edge devices, with exact partitioned attention, a distributed KV cache, and certified pruning benchmarks for Qwen2.5.
+site_url: https://charafeddinemechalikh.github.io/TESSERA/
+repo_url: https://github.com/CharafeddineMechalikh/TESSERA
+repo_name: CharafeddineMechalikh/TESSERA
+
+theme:
+  name: material
+  language: en
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+extra_javascript:
+  - https://unpkg.com/mermaid@10.9.1/dist/mermaid.min.js
+
+nav:
+  - Home: index.md
+  - Documentation index: 00-index.md
+  - Architecture: 01-architecture.md
+  - Numerical protocol: 02-protocol-math.md
+  - Worker protocol: 03-worker-protocol.md
+  - Coordinator API: 04-coordinator-api.md
+  - Configuration: 05-configuration.md
+  - Operations: 06-operations.md
+  - Tests and CI: 07-testing.md
+  - Roadmap: 08-roadmap.md

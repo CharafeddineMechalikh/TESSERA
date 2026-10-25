@@ -1,3 +1,7 @@
+---
+description: "The numerical contract behind exact distributed attention: partitioning, Cauchy-Schwarz bounds, the omitted-mass certificate, retention, and the float64 merge."
+---
+
 # Numerical protocol: exact distributed attention
 
 The protocol that makes Tessera's distributed attention exact lives in

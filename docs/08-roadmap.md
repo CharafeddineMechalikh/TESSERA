@@ -1,3 +1,7 @@
+---
+description: "Tessera roadmap: distributed attention today, layer pipeline parallelism next, then containers and edge deployment."
+---
+
 # Roadmap: attention, layer pipeline, and edge deployment
 
 Tessera is a side project with a framework target: run LLM inference across

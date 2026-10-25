@@ -1,3 +1,7 @@
+---
+description: "What each Tessera test file protects, the integration and real_model markers, and what CI runs."
+---
+
 # Tessera test suite and CI
 
 The suite proves the numerical protocol against independent oracles, the HTTP

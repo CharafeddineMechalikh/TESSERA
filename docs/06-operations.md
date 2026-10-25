@@ -1,3 +1,7 @@
+---
+description: "Measured run costs, RAM admission, native-exit diagnostics, failure modes, and artifact verification for Tessera."
+---
+
 # Operations: costs, memory admission, and failure modes
 
 This document covers running Tessera: what a run costs, how RAM admission works,

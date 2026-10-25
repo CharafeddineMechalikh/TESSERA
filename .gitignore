@@ -6,3 +6,5 @@ output/
 venv/
 *.log
 .env
+site/
+.venv-docs/

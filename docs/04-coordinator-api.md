@@ -1,3 +1,7 @@
+---
+description: "Tessera coordinator HTTP API: authentication modes, run endpoints, SSE events, artifact downloads, and the error taxonomy."
+---
+
 # Coordinator HTTP API: runs, events, and artifacts
 
 Reference for Tessera's `app/main.py` and the run lifecycle in

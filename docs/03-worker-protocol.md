@@ -1,3 +1,7 @@
+---
+description: "Tessera worker HTTP protocol: every attention and KV-cache endpoint, payload field set, status code, and idempotency rule."
+---
+
 # Worker HTTP protocol: attention and KV cache
 
 Reference for `distributed_llm/worker_node.py`, Tessera's isolated attention

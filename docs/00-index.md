@@ -1,3 +1,7 @@
+---
+description: "Entry point for the Tessera documentation set, with the reading order, current measured results, and the glossary."
+---
+
 # Tessera: documentation
 
 Tessera is a framework for running LLM inference across edge devices. It starts
