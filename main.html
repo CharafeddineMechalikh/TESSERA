@@ -1,0 +1,1715 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-950 text-slate-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Distributed Attention Benchmark & JS Sandbox</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js for real-time benchmark visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- MathJax for mathematical equations rendering -->
+    <script>
+        MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$'], ['\\[', '\\]']]
+            },
+            svg: { fontCache: 'global' }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f6ff',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            900: '#1e3a8a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        code, textarea, .font-mono { font-family: 'Fira Code', monospace; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.6); }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(51, 65, 85, 0.8); border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(71, 85, 105, 1); }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="h-full min-h-[100dvh] flex flex-col overflow-hidden bg-slate-950 text-slate-200">
+
+    <header class="border-b border-slate-800 bg-slate-900/90 backdrop-blur px-3 sm:px-6 py-2.5 sm:py-3 flex flex-col sm:flex-row items-stretch sm:items-center justify-between shrink-0 gap-3">
+        <div class="flex items-center gap-2.5">
+            <div class="p-2 bg-blue-600/20 text-blue-400 rounded-lg border border-blue-500/30 shrink-0">
+                <i class="fa-solid fa-microchip text-base sm:text-lg"></i>
+            </div>
+            <div class="min-w-0">
+                <h1 class="text-sm sm:text-lg font-bold tracking-wide text-white flex items-center gap-2 truncate">
+                    <span class="truncate">Distributed Attention Lab</span>
+                    <span class="text-[10px] sm:text-xs bg-blue-500/10 text-blue-400 px-1.5 sm:px-2 py-0.5 rounded border border-blue-500/20 font-mono shrink-0">v8.0-Audited</span>
+                </h1>
+                <p class="text-[10px] sm:text-xs text-slate-400 truncate">Multiplicity Equivalence & Adaptive Omitted-Mass Pruning</p>
+            </div>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <div class="flex items-center gap-1.5 bg-slate-950/80 p-1 rounded-lg border border-slate-800 overflow-x-auto no-scrollbar shrink-0">
+            <button id="tab-btn-benchmark" onclick="switchTab('benchmark')" class="px-3 sm:px-4 py-2 sm:py-1.5 rounded-md text-xs font-medium transition-all bg-blue-600 text-white shadow-sm flex items-center gap-1.5 shrink-0 min-h-[38px] sm:min-h-[auto] cursor-pointer">
+                <i class="fa-solid fa-chart-line text-xs"></i> <span>Benchmark</span>
+            </button>
+            <button id="tab-btn-sandbox" onclick="switchTab('sandbox')" class="px-3 sm:px-4 py-2 sm:py-1.5 rounded-md text-xs font-medium text-slate-400 hover:text-white transition-all flex items-center gap-1.5 shrink-0 min-h-[38px] sm:min-h-[auto] cursor-pointer">
+                <i class="fa-solid fa-code text-xs"></i> <span>JS Sandbox</span>
+            </button>
+            <button id="tab-btn-math" onclick="switchTab('math')" class="px-3 sm:px-4 py-2 sm:py-1.5 rounded-md text-xs font-medium text-slate-400 hover:text-white transition-all flex items-center gap-1.5 shrink-0 min-h-[38px] sm:min-h-[auto] cursor-pointer">
+                <i class="fa-solid fa-calculator text-xs"></i> <span>Theory</span>
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-1 overflow-hidden relative flex flex-col">
+
+        <!-- ================= TAB 1: BENCHMARK SUITE ================= -->
+        <div id="tab-benchmark" class="h-full flex flex-col lg:flex-row gap-3 sm:gap-4 p-2.5 sm:p-4 overflow-y-auto custom-scrollbar">
+            
+            <!-- Sidebar Controls -->
+            <div class="w-full lg:w-80 shrink-0 bg-slate-900 border border-slate-800 rounded-xl p-3.5 sm:p-5 flex flex-col gap-3.5 sm:gap-4">
+                <div class="border-b border-slate-800 pb-2.5 flex items-center justify-between cursor-pointer lg:cursor-default" onclick="toggleMobileParams()">
+                    <h2 class="font-semibold text-xs sm:text-sm text-slate-100 flex items-center gap-2">
+                        <i class="fa-solid fa-sliders text-blue-400"></i> Parameters & Control
+                    </h2>
+                    <div class="flex items-center gap-2">
+                        <span id="status-badge" class="text-[9px] sm:text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-1.5 sm:px-2 py-0.5 rounded font-mono flex items-center gap-1">
+                            <i class="fa-solid fa-circle text-[5px]"></i> Ready
+                        </span>
+                        <button class="lg:hidden text-slate-400 p-1 hover:text-white" aria-label="Toggle parameters">
+                            <i id="param-toggle-icon" class="fa-solid fa-chevron-down text-xs transition-transform duration-200"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Parameter Controls Container -->
+                <div id="param-container" class="space-y-3 sm:space-y-4 hidden lg:block">
+                    <!-- Research Track Selection -->
+                    <div class="space-y-1.5 bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+                        <label class="text-xs font-semibold text-blue-300 flex items-center gap-1.5">
+                            <i class="fa-solid fa-flask text-blue-400"></i> Experiment Mode
+                        </label>
+                        <select id="param-mode" class="w-full bg-slate-900 border border-slate-800 rounded-lg text-xs p-2.5 sm:p-2 text-slate-200 focus:outline-none focus:border-blue-500 min-h-[42px] sm:min-h-[auto]">
+                            <option value="track1">Track 1: Multiplicity Control (Exact Equivalence Test)</option>
+                            <option value="track2">Track 2: Geometric Cauchy-Schwarz Pruning</option>
+                            <option value="track3" selected>Track 3: Overlapping + Adaptive Mass Pruning</option>
+                        </select>
+                        <p id="mode-hint" class="text-[9px] text-slate-400 mt-1">
+                            Track 3 prunes blocks based on Cauchy-Schwarz bounds while handling token overlap.
+                        </p>
+                    </div>
+
+                    <!-- Workload Distribution Scenario -->
+                    <div class="space-y-1.5">
+                        <div class="flex justify-between text-xs">
+                            <label class="text-slate-300 font-medium">Workload Pattern</label>
+                            <span id="val-scenario" class="font-mono text-indigo-400">Aligned Needle</span>
+                        </div>
+                        <select id="param-scenario" class="w-full bg-slate-950 border border-slate-800 rounded-lg text-xs p-2.5 sm:p-2 text-slate-200 focus:outline-none focus:border-indigo-500 min-h-[42px] sm:min-h-[auto]">
+                            <option value="needle" selected>High-Salience Needle (Log-Scaled)</option>
+                            <option value="multi-needle">Multi-Cluster Salience (3 Needles)</option>
+                            <option value="diffuse">Diffuse / Uniform Attention (Dense)</option>
+                            <option value="adversarial">Adversarial Dense Mass (Many Keys)</option>
+                        </select>
+                    </div>
+
+                    <!-- Serving Mode Quick Presets -->
+                    <div class="p-2 bg-slate-950 border border-slate-800 rounded-lg space-y-1">
+                        <label class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">Query Cost Accounting Mode</label>
+                        <div class="grid grid-cols-2 gap-1.5">
+                            <button onclick="setAccountingMode(false)" id="btn-mode-online" class="py-1 px-2 text-[10px] font-medium rounded border transition-colors bg-blue-600/30 border-blue-500 text-blue-300">
+                                <i class="fa-solid fa-bolt me-1"></i> Online Serving (Cached Index)
+                            </button>
+                            <button onclick="setAccountingMode(true)" id="btn-mode-offline" class="py-1 px-2 text-[10px] font-medium rounded border transition-colors bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200">
+                                <i class="fa-solid fa-database me-1"></i> + Preproc Indexing
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- PRNG Seed Control -->
+                    <div class="space-y-1.5">
+                        <div class="flex justify-between text-xs">
+                            <label class="text-slate-300 font-medium">PRNG Seed</label>
+                            <span id="val-seed" class="font-mono text-blue-400">42</span>
+                        </div>
+                        <div class="flex gap-2">
+                            <input type="number" id="param-seed" value="42" min="1" max="999999" class="w-full bg-slate-950 border border-slate-800 rounded-lg text-xs p-2 text-slate-200 font-mono focus:outline-none focus:border-blue-500">
+                            <button onclick="randomizeSeed()" class="px-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs rounded-lg transition-colors shrink-0" title="Randomize Seed">
+                                <i class="fa-solid fa-dice"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Sequence Length -->
+                    <div class="space-y-1.5">
+                        <div class="flex justify-between text-xs">
+                            <label class="text-slate-300 font-medium">Sequence Length (<span class="font-mono text-blue-400">N</span>)</label>
+                            <span id="val-seqLen" class="font-mono text-blue-400">16,000</span>
+                        </div>
+                        <input type="range" id="param-seqLen" min="1000" max="64000" step="1000" value="16000" class="w-full accent-blue-500 bg-slate-800 h-2 sm:h-1.5 rounded-lg appearance-none cursor-pointer">
+                        <p class="text-[9px] text-slate-500">Larger $N$ accentuates block pruning speedup.</p>
+                    </div>
+
+                    <!-- Worker Blocks -->
+                    <div class="space-y-1.5">
+                        <div class="flex justify-between text-xs">
+                            <label class="text-slate-300 font-medium">Worker Blocks (<span class="font-mono text-blue-400">K</span>)</label>
+                            <span id="val-devices" class="font-mono text-blue-400">16</span>
+                        </div>
+                        <input type="range" id="param-devices" min="2" max="32" step="1" value="16" class="w-full accent-blue-500 bg-slate-800 h-2 sm:h-1.5 rounded-lg appearance-none cursor-pointer">
+                    </div>
+
+                    <!-- Overlap Target -->
+                    <div id="box-overlap-params" class="space-y-1.5 p-2.5 bg-slate-950/80 border border-indigo-500/30 rounded-lg">
+                        <div class="flex justify-between text-xs">
+                            <label class="text-indigo-300 font-medium flex items-center gap-1.5">
+                                <i class="fa-solid fa-object-group text-indigo-400"></i> Overlap Prob. (<span class="font-mono text-indigo-400">&beta;%</span>)
+                            </label>
+                            <span id="val-overlapRate" class="font-mono text-indigo-400">15%</span>
+                        </div>
+                        <input type="range" id="param-overlapRate" min="0" max="100" step="5" value="15" class="w-full accent-indigo-500 bg-slate-800 h-2 sm:h-1.5 rounded-lg appearance-none cursor-pointer">
+                    </div>
+
+                    <!-- Multiplicity Score Correction Switch -->
+                    <div id="box-correction-params" class="p-3 bg-indigo-950/40 border border-indigo-500/40 rounded-lg space-y-1.5">
+                        <div class="flex items-center justify-between min-h-[32px]">
+                            <label for="param-applyCorrection" class="text-xs font-semibold text-indigo-200 flex items-center gap-2 cursor-pointer">
+                                <i class="fa-solid fa-square-root-variable text-emerald-400"></i> Retained Multiplicity Fix
+                            </label>
+                            <input type="checkbox" id="param-applyCorrection" checked class="w-4 h-4 accent-emerald-500 rounded cursor-pointer">
+                        </div>
+                        <p class="text-[10px] text-slate-400">
+                            Subtracts $\log c_{j,\text{ret}}$ for retained worker copies of token $j$.
+                        </p>
+                    </div>
+
+                    <!-- Partition Strategy -->
+                    <div class="space-y-1.5">
+                        <div class="flex justify-between text-xs">
+                            <label class="text-slate-300 font-medium">Partition Strategy</label>
+                            <span id="val-strategy" class="font-mono text-indigo-400">fmix32 Mixer</span>
+                        </div>
+                        <select id="param-strategy" class="w-full bg-slate-950 border border-slate-800 rounded-lg text-xs p-2.5 sm:p-2 text-slate-200 focus:outline-none focus:border-indigo-500 min-h-[42px] sm:min-h-[auto]">
+                            <option value="pseudorandom" selected>fmix32 Integer Mixer</option>
+                            <option value="contiguous">Contiguous Margin Expansion</option>
+                        </select>
+                    </div>
+
+                    <!-- Track 2/3 Parameters: Adaptive Error Tolerance & Geometric Pruning -->
+                    <div id="box-track2-params" class="space-y-2 p-2.5 bg-amber-950/30 border border-amber-500/30 rounded-lg">
+                        <div class="flex justify-between text-xs">
+                            <label class="text-amber-300 font-medium flex items-center gap-1">
+                                <i class="fa-solid fa-shield-halved text-amber-400"></i> Max Error Tolerance ($\epsilon_{\text{tol}}$)
+                            </label>
+                            <span id="val-errorTolerance" class="font-mono text-amber-400">1.0e-3</span>
+                        </div>
+                        <select id="param-errorTolerance" class="w-full bg-slate-900 border border-slate-800 rounded-lg text-xs p-2 text-amber-200 font-mono focus:outline-none focus:border-amber-500">
+                            <option value="1e-4">1.0e-4 (High Precision)</option>
+                            <option value="1e-3" selected>1.0e-3 (Balanced Standard)</option>
+                            <option value="1e-2">1.0e-2 (Fast Aggressive Pruning)</option>
+                            <option value="1e-1">1.0e-1 (Coarse Ultra-Fast)</option>
+                        </select>
+                        <p class="text-[10px] text-amber-200/70 mt-1">
+                            Adaptively retains blocks until $2 V_{\max} p_P \le \epsilon_{\text{tol}}$, evaluated over un-retained unique tokens with a $5\%$ safety margin.
+                        </p>
+                    </div>
+
+                    <!-- Amortized Preprocessing Toggle -->
+                    <div class="p-2.5 bg-slate-950 border border-slate-800 rounded-lg space-y-1">
+                        <div class="flex items-center justify-between">
+                            <label for="param-includePreproc" class="text-xs text-slate-300 flex items-center gap-2 cursor-pointer">
+                                <i class="fa-solid fa-clock-rotate-left text-blue-400"></i> Include Offline Preproc FLOPs
+                            </label>
+                            <input type="checkbox" id="param-includePreproc" class="w-4 h-4 accent-blue-500 rounded cursor-pointer">
+                        </div>
+                        <p class="text-[9px] text-slate-500">Uncheck for online per-query serving cost (reuses cached KV centroids).</p>
+                    </div>
+
+                    <!-- Head Dimension -->
+                    <div class="space-y-1.5">
+                        <div class="flex justify-between text-xs">
+                            <label class="text-slate-300 font-medium">Head Dimension (<span class="font-mono text-blue-400">d<sub>k</sub></span>)</label>
+                            <span id="val-dim" class="font-mono text-blue-400">64</span>
+                        </div>
+                        <select id="param-dim" class="w-full bg-slate-950 border border-slate-800 rounded-lg text-xs p-2.5 sm:p-2 text-slate-200 focus:outline-none focus:border-blue-500 min-h-[42px] sm:min-h-[auto]">
+                            <option value="32">32 (Lite)</option>
+                            <option value="64" selected>64 (Standard Head)</option>
+                            <option value="128">128 (Large Head)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="space-y-2">
+                    <button id="btn-run-benchmark" onclick="triggerBenchmarkExecution()" class="w-full py-3 sm:py-2.5 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold rounded-lg shadow-lg shadow-blue-500/20 text-xs tracking-wider uppercase transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 min-h-[44px]">
+                        <i id="btn-icon" class="fa-solid fa-play text-xs"></i> <span id="btn-text">Execute Single Trial</span>
+                    </button>
+
+                    <button id="btn-run-suite" onclick="triggerMultiSeedSuite()" class="w-full py-2 px-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-medium rounded-lg text-xs transition-all flex items-center justify-center gap-2 cursor-pointer">
+                        <i class="fa-solid fa-layer-group text-indigo-400 text-xs"></i> <span>Run 10-Seed Suite Statistics</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Dashboard Analytics -->
+            <div class="flex-1 flex flex-col gap-3 sm:gap-4 min-w-0">
+                
+                <!-- Metric Cards Grid -->
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
+                    <!-- Control Relative Error -->
+                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 sm:p-4 flex flex-col justify-between">
+                        <div class="flex items-center justify-between text-[11px] sm:text-xs text-slate-400">
+                            <span class="truncate">Disjoint Control RelErr</span>
+                            <i class="fa-solid fa-scale-balanced text-emerald-400 text-xs shrink-0 ml-1"></i>
+                        </div>
+                        <div id="metric-disjoint-relerr" class="text-base sm:text-xl font-bold font-mono text-emerald-400 my-1 truncate">--</div>
+                        <div id="metric-needle-mass" class="text-[9px] sm:text-[10px] text-slate-400 truncate">Needle Mass: --%</div>
+                    </div>
+
+                    <!-- Target Method Error -->
+                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 sm:p-4 flex flex-col justify-between">
+                        <div class="flex items-center justify-between text-[11px] sm:text-xs text-slate-400">
+                            <span class="truncate" id="lbl-target-relerr">Target Output Error</span>
+                            <i class="fa-solid fa-calculator text-indigo-400 text-xs shrink-0 ml-1"></i>
+                        </div>
+                        <div id="metric-overlap-relerr" class="text-base sm:text-xl font-bold font-mono text-indigo-400 my-1 truncate">--</div>
+                        <div id="metric-max-abs-err" class="text-[9px] sm:text-[10px] text-slate-500 truncate">L2 Err: -- | RelErr: --</div>
+                    </div>
+
+                    <!-- Omitted Probability Mass Bound -->
+                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 sm:p-4 flex flex-col justify-between">
+                        <div class="flex items-center justify-between text-[11px] sm:text-xs text-slate-400">
+                            <span class="truncate">Certified Error Bound</span>
+                            <i class="fa-solid fa-shield-halved text-amber-400 text-xs shrink-0 ml-1"></i>
+                        </div>
+                        <div id="metric-omitted-mass" class="text-base sm:text-xl font-bold font-mono text-amber-400 my-1 truncate">--</div>
+                        <div id="metric-bound-guarantee" class="text-[9px] sm:text-[10px] text-slate-500 truncate">Bound: $2 V_{\max} p_P \le \epsilon$</div>
+                    </div>
+
+                    <!-- Net FLOP Efficiency -->
+                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 sm:p-4 flex flex-col justify-between">
+                        <div class="flex items-center justify-between text-[11px] sm:text-xs text-slate-400">
+                            <span class="truncate" id="lbl-flop-metric">Net FLOP Efficiency</span>
+                            <i id="icon-flop-savings" class="fa-solid fa-microchip text-blue-400 text-xs shrink-0 ml-1"></i>
+                        </div>
+                        <div id="metric-flop-savings" class="text-base sm:text-xl font-bold font-mono text-blue-400 my-1 truncate">--</div>
+                        <div id="metric-screening-cost" class="text-[9px] sm:text-[10px] text-slate-500 truncate">Full Pipeline FLOPs (Audited)</div>
+                    </div>
+                </div>
+
+                <!-- Mathematical Diagnostics Banner -->
+                <div id="overlap-diagnostic-box" class="bg-slate-900 border border-slate-800 rounded-xl p-3 sm:p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 text-xs">
+                    <div class="flex items-center gap-2.5">
+                        <div id="diag-icon" class="p-2 sm:p-2.5 rounded-lg text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 shrink-0">
+                            <i id="diag-icon-i" class="fa-solid fa-shield-halved text-sm sm:text-base"></i>
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span id="diag-title" class="font-semibold text-slate-200 text-xs sm:text-sm">Mathematical Diagnostics</span>
+                                <span id="diag-badge" class="text-[9px] sm:text-[10px] px-2 py-0.5 rounded font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Ready</span>
+                            </div>
+                            <p id="diag-desc" class="text-[10px] sm:text-[11px] text-slate-400 mt-0.5">Realized Overhead vs Retained Multiplicity Fix & Mass Bounds.</p>
+                        </div>
+                    </div>
+                    <div class="flex sm:flex-col justify-between w-full sm:w-auto text-left sm:text-right font-mono text-[10px] sm:text-[11px] space-y-0.5 border-t sm:border-t-0 border-slate-800 pt-1.5 sm:pt-0">
+                        <div id="diag-overhead-stats" class="text-indigo-300">Overhead: -- | Extra-Copy Rate: --</div>
+                        <div id="diag-cache-stats" class="text-slate-400 text-[9px] sm:text-[10px]">KV Index Status: CACHED</div>
+                    </div>
+                </div>
+
+                <!-- Charts Grid -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 flex-1">
+                    <!-- Chart 1: Per-Device Token Load -->
+                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 sm:p-4 flex flex-col">
+                        <div class="flex items-center justify-between mb-2 sm:mb-3">
+                            <h3 class="text-xs font-semibold text-slate-200 flex items-center gap-2 truncate">
+                                <i class="fa-solid fa-chart-bar text-blue-400"></i> Worker Token Load Distribution
+                            </h3>
+                            <span class="text-[9px] sm:text-[10px] text-slate-500 shrink-0">Tokens / Node</span>
+                        </div>
+                        <div class="flex-1 relative min-h-[180px] sm:min-h-[220px]">
+                            <canvas id="chartWeights"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Chart 2: Output Alignment Vector -->
+                    <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 sm:p-4 flex flex-col">
+                        <div class="flex items-center justify-between mb-2 sm:mb-3">
+                            <h3 class="text-xs font-semibold text-slate-200 flex items-center gap-2 truncate">
+                                <i class="fa-solid fa-chart-line text-emerald-400"></i> Output Alignment Vector ($O_{\text{Full}}$ vs $O_{\text{Target}}$)
+                            </h3>
+                            <span class="text-[9px] sm:text-[10px] text-slate-500 shrink-0">32 Dimensions</span>
+                        </div>
+                        <div class="flex-1 relative min-h-[180px] sm:min-h-[220px]">
+                            <canvas id="chartOutput"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Terminal Execution Log -->
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-3 sm:p-4 h-36 sm:h-44 flex flex-col">
+                    <div class="flex items-center justify-between pb-2 border-b border-slate-800 mb-2">
+                        <h3 class="text-xs font-semibold text-slate-300 flex items-center gap-2 truncate">
+                            <i class="fa-solid fa-terminal text-slate-400"></i> Research Pipeline Terminal
+                        </h3>
+                        <button onclick="clearBenchmarkLog()" class="text-[10px] text-slate-500 hover:text-slate-300 transition-colors cursor-pointer shrink-0">Clear</button>
+                    </div>
+                    <div id="benchmark-log" class="flex-1 font-mono text-[10px] sm:text-[11px] text-slate-400 overflow-y-auto space-y-1 custom-scrollbar">
+                        <p class="text-slate-600">// Diagnostic execution logs appear here...</p>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- ================= TAB 2: LIVE JS CODE EXECUTION ================= -->
+        <div id="tab-sandbox" class="h-full hidden flex flex-col p-2.5 sm:p-4 gap-3 sm:gap-4 overflow-y-auto lg:overflow-hidden">
+            <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between bg-slate-900 border border-slate-800 p-3 rounded-xl shrink-0 gap-3">
+                <div class="flex items-center gap-2.5">
+                    <div class="p-2 bg-indigo-500/10 text-indigo-400 rounded-lg border border-indigo-500/20 shrink-0">
+                        <i class="fa-solid fa-code text-sm sm:text-base"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <h2 class="text-xs sm:text-sm font-semibold text-slate-100 truncate">Algorithm & Proof Sandbox</h2>
+                        <p class="text-[10px] sm:text-xs text-slate-400 truncate">Isolated iframe sandbox for exact online softmax proofs & omitted-mass bounds</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <select id="select-preset" onchange="loadCodePreset()" class="flex-1 sm:flex-none bg-slate-950 border border-slate-800 text-[11px] sm:text-xs text-slate-300 rounded-lg p-2 focus:outline-none focus:border-indigo-500 cursor-pointer min-h-[40px] sm:min-h-[auto]">
+                        <option value="preset-dedup">Preset 1: Measured Multiplicity Proof</option>
+                        <option value="preset-hash">Preset 2: fmix32 Integer Mixer Test</option>
+                        <option value="preset-pruning">Preset 3: Omitted Mass $p_P$ Bound Test</option>
+                    </select>
+                    <button onclick="runCustomJS()" class="px-3.5 sm:px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs rounded-lg transition-all flex items-center gap-1.5 shadow-md shadow-indigo-600/20 cursor-pointer min-h-[40px] sm:min-h-[auto] shrink-0">
+                        <i class="fa-solid fa-play text-xs"></i> <span>Run Code</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 min-h-0">
+                <!-- JS Code Editor -->
+                <div class="bg-slate-900 border border-slate-800 rounded-xl flex flex-col overflow-hidden min-h-[260px] sm:min-h-[300px]">
+                    <div class="bg-slate-950 px-3.5 py-2 border-b border-slate-800 flex items-center justify-between text-xs text-slate-400">
+                        <span><i class="fa-brands fa-js text-amber-400 me-1"></i> sandbox.js</span>
+                        <span class="text-[10px] text-emerald-400"><i class="fa-solid fa-shield-halved me-1"></i> Sandboxed Execution (Isolated iFrame)</span>
+                    </div>
+                    <textarea id="js-code-editor" class="flex-1 p-3.5 bg-slate-950 text-slate-200 font-mono text-[11px] sm:text-xs focus:outline-none resize-none custom-scrollbar leading-relaxed" spellcheck="false"></textarea>
+                </div>
+
+                <!-- Interactive Output Console -->
+                <div class="bg-slate-900 border border-slate-800 rounded-xl flex flex-col overflow-hidden min-h-[200px] sm:min-h-[300px]">
+                    <div class="bg-slate-950 px-3.5 py-2 border-b border-slate-800 flex items-center justify-between text-xs text-slate-400">
+                        <span><i class="fa-solid fa-terminal me-1"></i> Execution Console</span>
+                        <button onclick="clearConsole()" class="text-slate-500 hover:text-slate-300 text-[10px] sm:text-[11px] transition-colors cursor-pointer">Clear Output</button>
+                    </div>
+                    <div id="console-output" class="flex-1 p-3.5 font-mono text-[11px] sm:text-xs text-slate-300 overflow-y-auto space-y-1 bg-slate-950 custom-scrollbar">
+                        <p class="text-slate-600">// Console execution logs appear here...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Hidden Sandboxed Execution iFrame -->
+        <iframe id="sandbox-iframe" class="hidden" sandbox="allow-scripts"></iframe>
+
+        <!-- ================= TAB 3: MATHEMATICAL THEORY ================= -->
+        <div id="tab-math" class="h-full hidden p-3 sm:p-6 overflow-y-auto custom-scrollbar">
+            <div class="max-w-4xl mx-auto bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-8 space-y-5 sm:space-y-6">
+                <div class="border-b border-slate-800 pb-3 sm:pb-4">
+                    <h2 class="text-base sm:text-xl font-bold text-slate-100 flex items-center gap-2">
+                        <i class="fa-solid fa-square-root-variable text-blue-400"></i> Mathematical Foundation
+                    </h2>
+                    <p class="text-[11px] sm:text-xs text-slate-400 mt-1">
+                        Multiplicity-corrected softmax & provable omitted probability mass upper bounds
+                    </p>
+                </div>
+
+                <!-- Section 1 -->
+                <div class="space-y-1.5">
+                    <h3 class="text-xs sm:text-sm font-semibold text-rose-400 flex items-center gap-2">
+                        <span class="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center text-[10px] sm:text-xs shrink-0">1</span>
+                        Token Multiplicity Score Correction
+                    </h3>
+                    <p class="text-[11px] sm:text-xs text-slate-300 leading-relaxed">
+                        When token $j$ with value vector $v_j$ is distributed across $c_j$ worker nodes, setting $s'_j = s_j - \log c_j$ ensures that summing over all $c_j$ worker copies recovers the exact global log-sum-exp sum and output vector:
+                    </p>
+                    <div class="p-3 bg-slate-950 border border-slate-800 rounded-xl font-mono text-[11px] sm:text-xs text-emerald-300 space-y-2 overflow-x-auto custom-scrollbar">
+                        $$\sum_{k=1}^{c_j} e^{s_j - \log c_j} = c_j \frac{e^{s_j}}{c_j} = e^{s_j} \implies Z_{\text{reconstructed}} = Z_{\text{exact}}$$
+                    </div>
+                </div>
+
+                <!-- Section 2 -->
+                <div class="space-y-1.5">
+                    <h3 class="text-xs sm:text-sm font-semibold text-amber-400 flex items-center gap-2">
+                        <span class="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center text-[10px] sm:text-xs shrink-0">2</span>
+                        Geometric Cauchy-Schwarz Block Score Bounds
+                    </h3>
+                    <p class="text-[11px] sm:text-xs text-slate-300 leading-relaxed">
+                        For key block $B$ with precomputed centroid $c_B = \frac{1}{|B|}\sum_{j \in B} k_j$ and radius $r_B = \max_{j \in B} \|k_j - c_B\|_2$, the Cauchy-Schwarz inequality guarantees that for any query $q$:
+                    </p>
+                    <div class="p-3 bg-slate-950 border border-slate-800 rounded-xl font-mono text-[11px] sm:text-xs text-amber-300 overflow-x-auto custom-scrollbar">
+                        $$\forall j \in B, \quad s_j = \frac{q^\top k_j}{\sqrt{d_k}} \le U_B = \frac{q^\top c_B + \|q\|_2 r_B}{\sqrt{d_k}}$$
+                    </div>
+                </div>
+
+                <!-- Section 3 -->
+                <div class="space-y-1.5">
+                    <h3 class="text-xs sm:text-sm font-semibold text-emerald-400 flex items-center gap-2">
+                        <span class="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-[10px] sm:text-xs shrink-0">3</span>
+                        Bounding Omitted Mass $p_P$ over Un-retained Unique Tokens
+                    </h3>
+                    <p class="text-[11px] sm:text-xs text-slate-300 leading-relaxed">
+                        Let $R$ denote evaluated worker blocks and $U_{\text{missing}}$ denote unique tokens with 0 copies in $R$. Using Cauchy-Schwarz upper bounds $U_B$, we construct a tight upper bound $\widehat Z_P$ over missing unique tokens:
+                    </p>
+                    <div class="p-3 bg-slate-950 border border-slate-800 rounded-xl font-mono text-[11px] sm:text-xs text-emerald-300 space-y-2 overflow-x-auto custom-scrollbar">
+                        $$\widehat Z_P = \gamma_{\text{safe}} \cdot \sum_{j \in U_{\text{missing}}} e^{U_{B(j)}}, \qquad p_P \le \frac{\widehat Z_P}{Z_R + \widehat Z_P}$$
+                        <p class="mt-2 text-slate-400">Assuming bounded value vectors $\|v_j\|_2 \le V_{\max}$, the $\ell_2$ output error is strictly certified by:</p>
+                        $$\|O_{\text{full}} - O_R\|_2 \le 2 V_{\max} p_P$$
+                    </div>
+                    <p class="text-[11px] sm:text-xs text-slate-300 leading-relaxed">
+                        The algorithm dynamically retains blocks ordered by $U_B$ until $2 V_{\max} p_P \le \epsilon_{\text{tol}}$, offering rigorous error control.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- JavaScript Benchmark & Engine -->
+    <script>
+        let chartWeights = null;
+        let chartOutput = null;
+
+        // Persistent KV Centroid & Radius Cache
+        const PERSISTENT_KV_CACHE = new Map();
+
+        // Mulberry32 Deterministic Seedable PRNG
+        function mulberry32(a) {
+            return function() {
+                let t = a += 0x6D2B79F5;
+                t = Math.imul(t ^ t >>> 15, t | 1);
+                t ^= t + Math.imul(t ^ t >>> 8, t | 38);
+                return ((t ^ t >>> 14) >>> 0) / 4294967296;
+            }
+        }
+
+        // fmix32 Integer Mixer (MurmurHash3 Finalizer)
+        function fmix32(key, seed = 0x977f23a7) {
+            let h = (key ^ seed) >>> 0;
+            h = Math.imul(h ^ (h >>> 16), 0x85ebca6b);
+            h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
+            return (h ^ (h >>> 16)) >>> 0;
+        }
+
+        function setAccountingMode(includeOfflinePreproc) {
+            const chk = document.getElementById('param-includePreproc');
+            if (chk) chk.checked = includeOfflinePreproc;
+
+            const btnOnline = document.getElementById('btn-mode-online');
+            const btnOffline = document.getElementById('btn-mode-offline');
+
+            if (includeOfflinePreproc) {
+                if (btnOnline) btnOnline.className = "py-1 px-2 text-[10px] font-medium rounded border transition-colors bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200";
+                if (btnOffline) btnOffline.className = "py-1 px-2 text-[10px] font-medium rounded border transition-colors bg-blue-600/30 border-blue-500 text-blue-300";
+            } else {
+                if (btnOnline) btnOnline.className = "py-1 px-2 text-[10px] font-medium rounded border transition-colors bg-blue-600/30 border-blue-500 text-blue-300";
+                if (btnOffline) btnOffline.className = "py-1 px-2 text-[10px] font-medium rounded border transition-colors bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200";
+            }
+            triggerBenchmarkExecution();
+        }
+
+        function randomizeSeed() {
+            const newSeed = Math.floor(Math.random() * 99999) + 1;
+            document.getElementById('param-seed').value = newSeed;
+            document.getElementById('val-seed').innerText = newSeed;
+            triggerBenchmarkExecution();
+        }
+
+        function toggleMobileParams() {
+            const container = document.getElementById('param-container');
+            const icon = document.getElementById('param-toggle-icon');
+            if (!container) return;
+            
+            if (container.classList.contains('hidden')) {
+                container.classList.remove('hidden');
+                if (icon) icon.className = "fa-solid fa-chevron-up text-xs transition-transform duration-200";
+            } else {
+                container.classList.add('hidden');
+                if (icon) icon.className = "fa-solid fa-chevron-down text-xs transition-transform duration-200";
+            }
+        }
+
+        function switchTab(tabName) {
+            try {
+                document.getElementById('tab-benchmark').classList.add('hidden');
+                document.getElementById('tab-sandbox').classList.add('hidden');
+                document.getElementById('tab-math').classList.add('hidden');
+
+                document.getElementById('tab-btn-benchmark').className = 'px-4 py-1.5 rounded-md text-xs font-medium text-slate-400 hover:text-white transition-all flex items-center gap-2 cursor-pointer';
+                document.getElementById('tab-btn-sandbox').className = 'px-4 py-1.5 rounded-md text-xs font-medium text-slate-400 hover:text-white transition-all flex items-center gap-2 cursor-pointer';
+                document.getElementById('tab-btn-math').className = 'px-4 py-1.5 rounded-md text-xs font-medium text-slate-400 hover:text-white transition-all flex items-center gap-2 cursor-pointer';
+
+                if (tabName === 'benchmark') {
+                    document.getElementById('tab-benchmark').classList.remove('hidden');
+                    document.getElementById('tab-btn-benchmark').className = 'px-4 py-1.5 rounded-md text-xs font-medium transition-all bg-blue-600 text-white shadow-sm flex items-center gap-2 cursor-pointer';
+                } else if (tabName === 'sandbox') {
+                    document.getElementById('tab-sandbox').classList.remove('hidden');
+                    document.getElementById('tab-btn-sandbox').className = 'px-4 py-1.5 rounded-md text-xs font-medium transition-all bg-indigo-600 text-white shadow-sm flex items-center gap-2 cursor-pointer';
+                } else if (tabName === 'math') {
+                    document.getElementById('tab-math').classList.remove('hidden');
+                    document.getElementById('tab-btn-math').className = 'px-4 py-1.5 rounded-md text-xs font-medium transition-all bg-blue-600 text-white shadow-sm flex items-center gap-2 cursor-pointer';
+                    if (window.MathJax && window.MathJax.typesetPromise) {
+                        MathJax.typesetPromise().catch(err => console.log('MathJax exception:', err));
+                    }
+                }
+            } catch (e) {
+                console.error("Tab switch error:", e);
+            }
+        }
+
+        function bindInputs() {
+            const modeSelect = document.getElementById('param-mode');
+            if (modeSelect) {
+                modeSelect.addEventListener('change', (e) => {
+                    const track2Box = document.getElementById('box-track2-params');
+                    const overlapBox = document.getElementById('box-overlap-params');
+                    const hint = document.getElementById('mode-hint');
+                    const mode = e.target.value;
+
+                    if (mode === 'track2') {
+                        if (track2Box) track2Box.classList.remove('hidden');
+                        if (overlapBox) overlapBox.classList.add('hidden');
+                        if (hint) hint.innerText = "Track 2 tests geometric block pruning on disjoint worker blocks.";
+                    } else if (mode === 'track3') {
+                        if (track2Box) track2Box.classList.remove('hidden');
+                        if (overlapBox) overlapBox.classList.remove('hidden');
+                        if (hint) hint.innerText = "Track 3 combines geometric pruning with token overlap and adaptive mass bounds.";
+                    } else {
+                        if (track2Box) track2Box.classList.add('hidden');
+                        if (overlapBox) overlapBox.classList.remove('hidden');
+                        if (hint) hint.innerText = "Track 1 tests exact score equivalence over overlapping tokens without block pruning.";
+                    }
+                    triggerBenchmarkExecution();
+                });
+            }
+
+            const scenarioSelect = document.getElementById('param-scenario');
+            if (scenarioSelect) {
+                scenarioSelect.addEventListener('change', (e) => {
+                    const labels = {
+                        'needle': 'High-Salience Needle',
+                        'diffuse': 'Diffuse / Uniform',
+                        'multi-needle': '3 Needles',
+                        'adversarial': 'Adversarial Dense Mass'
+                    };
+                    document.getElementById('val-scenario').innerText = labels[e.target.value] || e.target.value;
+                    triggerBenchmarkExecution();
+                });
+            }
+
+            const seedInput = document.getElementById('param-seed');
+            if (seedInput) {
+                seedInput.addEventListener('input', (e) => {
+                    document.getElementById('val-seed').innerText = e.target.value || '1';
+                });
+            }
+
+            const seqInput = document.getElementById('param-seqLen');
+            if (seqInput) {
+                seqInput.addEventListener('input', (e) => {
+                    document.getElementById('val-seqLen').innerText = parseInt(e.target.value).toLocaleString();
+                });
+            }
+            const devInput = document.getElementById('param-devices');
+            if (devInput) {
+                devInput.addEventListener('input', (e) => {
+                    document.getElementById('val-devices').innerText = e.target.value;
+                });
+            }
+            const overlapInput = document.getElementById('param-overlapRate');
+            if (overlapInput) {
+                overlapInput.addEventListener('input', (e) => {
+                    document.getElementById('val-overlapRate').innerText = e.target.value + '%';
+                });
+            }
+            const errorTolSelect = document.getElementById('param-errorTolerance');
+            if (errorTolSelect) {
+                errorTolSelect.addEventListener('change', (e) => {
+                    document.getElementById('val-errorTolerance').innerText = parseFloat(e.target.value).toExponential(1);
+                    triggerBenchmarkExecution();
+                });
+            }
+            const dimSelect = document.getElementById('param-dim');
+            if (dimSelect) {
+                dimSelect.addEventListener('change', (e) => {
+                    document.getElementById('val-dim').innerText = e.target.value;
+                    triggerBenchmarkExecution();
+                });
+            }
+            const stratSelect = document.getElementById('param-strategy');
+            if (stratSelect) {
+                stratSelect.addEventListener('change', (e) => {
+                    document.getElementById('val-strategy').innerText = e.target.value === 'pseudorandom' ? 'fmix32 Mixer' : 'Contiguous Margin';
+                    triggerBenchmarkExecution();
+                });
+            }
+            const preprocCheck = document.getElementById('param-includePreproc');
+            if (preprocCheck) {
+                preprocCheck.addEventListener('change', (e) => {
+                    setAccountingMode(e.target.checked);
+                });
+            }
+            const correctionCheck = document.getElementById('param-applyCorrection');
+            if (correctionCheck) {
+                correctionCheck.addEventListener('change', () => {
+                    triggerBenchmarkExecution();
+                });
+            }
+        }
+
+        function createRandomVector(dim, prng) {
+            const vec = new Float32Array(dim);
+            for (let i = 0; i < dim; i++) {
+                vec[i] = (prng() - 0.5) * 2.0;
+            }
+            return vec;
+        }
+
+        function dotProductStrided(q, matrix, rowIdx, dim) {
+            let sum = 0;
+            const offset = rowIdx * dim;
+            for (let i = 0; i < dim; i++) {
+                sum += q[i] * matrix[offset + i];
+            }
+            return sum;
+        }
+
+        function vectorNorm(v) {
+            let sum = 0;
+            for (let i = 0; i < v.length; i++) sum += v[i] * v[i];
+            return Math.sqrt(sum);
+        }
+
+        function computeL2Error(baseline, approx) {
+            let diffNormSq = 0;
+            for (let i = 0; i < baseline.length; i++) {
+                const diff = approx[i] - baseline[i];
+                diffNormSq += diff * diff;
+            }
+            return Math.sqrt(diffNormSq);
+        }
+
+        function computeRelativeError(baseline, approx) {
+            let diffNormSq = 0, baseNormSq = 0;
+            for (let i = 0; i < baseline.length; i++) {
+                const diff = approx[i] - baseline[i];
+                diffNormSq += diff * diff;
+                baseNormSq += baseline[i] * baseline[i];
+            }
+            return Math.sqrt(diffNormSq) / Math.sqrt(Math.max(baseNormSq, 1e-12));
+        }
+
+        function clearBenchmarkLog() {
+            const logContainer = document.getElementById('benchmark-log');
+            if (logContainer) logContainer.innerHTML = '';
+        }
+
+        function logBenchmark(msg, type = 'normal') {
+            const logContainer = document.getElementById('benchmark-log');
+            if (!logContainer) return;
+            const p = document.createElement('p');
+            const time = new Date().toISOString().split('T')[1].slice(0, 8);
+            
+            let colorClass = 'text-slate-400';
+            if (type === 'highlight') colorClass = 'text-indigo-400 font-semibold';
+            if (type === 'success') colorClass = 'text-emerald-400 font-semibold';
+            if (type === 'warn') colorClass = 'text-amber-400 font-semibold';
+            if (type === 'error') colorClass = 'text-rose-400 font-semibold';
+
+            p.className = `${colorClass} leading-relaxed`;
+            p.innerHTML = `<span class="text-slate-600">[${time}]</span> ${msg}`;
+            logContainer.appendChild(p);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        function initCharts() {
+            if (typeof Chart === 'undefined') return;
+
+            try {
+                const canvasWeights = document.getElementById('chartWeights');
+                if (canvasWeights) {
+                    const ctxWeights = canvasWeights.getContext('2d');
+                    chartWeights = new Chart(ctxWeights, {
+                        type: 'bar',
+                        data: {
+                            labels: [],
+                            datasets: [{
+                                label: 'Worker Token Count',
+                                data: [],
+                                backgroundColor: 'rgba(99, 102, 241, 0.7)',
+                                borderColor: 'rgba(129, 140, 248, 1)',
+                                borderWidth: 1,
+                                borderRadius: 6
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { display: false } },
+                            scales: {
+                                x: { grid: { color: 'rgba(51, 65, 85, 0.3)' }, ticks: { color: '#94a3b8', font: { size: 10 } } },
+                                y: { grid: { color: 'rgba(51, 65, 85, 0.3)' }, ticks: { color: '#94a3b8', font: { size: 10 } }, beginAtZero: true }
+                            }
+                        }
+                    });
+                }
+
+                const canvasOutput = document.getElementById('chartOutput');
+                if (canvasOutput) {
+                    const ctxOutput = canvasOutput.getContext('2d');
+                    chartOutput = new Chart(ctxOutput, {
+                        type: 'line',
+                        data: {
+                            labels: Array.from({length: 32}, (_, i) => `d${i}`),
+                            datasets: [
+                                { label: 'Full Baseline', data: [], borderColor: '#3b82f6', borderWidth: 2, tension: 0.2, pointRadius: 2 },
+                                { label: 'Disjoint Control', data: [], borderColor: '#10b981', borderWidth: 1.5, borderDash: [4, 4], tension: 0.2, pointRadius: 2 },
+                                { label: 'Target Strategy', data: [], borderColor: '#818cf8', borderWidth: 2, tension: 0.2, pointRadius: 2 }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: { legend: { labels: { color: '#cbd5e1', font: { size: 10 }, boxWidth: 12 } } },
+                            scales: {
+                                x: { grid: { color: 'rgba(51, 65, 85, 0.3)' }, ticks: { color: '#94a3b8', font: { size: 9 } } },
+                                y: { grid: { color: 'rgba(51, 65, 85, 0.3)' }, ticks: { color: '#94a3b8', font: { size: 9 } } }
+                            }
+                        }
+                    });
+                }
+            } catch (e) {
+                console.warn("Chart initialization fallback:", e);
+            }
+        }
+
+        function resetDiagnosticUI() {
+            document.getElementById('metric-disjoint-relerr').innerText = '--';
+            document.getElementById('metric-overlap-relerr').innerText = '--';
+            document.getElementById('metric-max-abs-err').innerText = 'L2 Err: -- | RelErr: --';
+            document.getElementById('metric-omitted-mass').innerText = '--';
+            document.getElementById('metric-bound-guarantee').innerText = 'Bound: $2 V_{\\max} p_P \\le \\epsilon$';
+            document.getElementById('metric-flop-savings').innerText = '--';
+            document.getElementById('metric-screening-cost').innerText = 'Full Pipeline FLOPs (Audited)';
+
+            document.getElementById('status-badge').className = 'text-[10px] px-2 py-0.5 rounded font-mono bg-blue-500/20 text-blue-300 border border-blue-500/30';
+            document.getElementById('status-badge').innerHTML = '<i class="fa-solid fa-spinner fa-spin text-[8px]"></i> Running';
+
+            document.getElementById('diag-title').innerText = 'Running Benchmark Trial...';
+            document.getElementById('diag-badge').innerText = 'Processing';
+            document.getElementById('diag-badge').className = 'text-[10px] px-2 py-0.5 rounded font-mono bg-blue-500/20 text-blue-300 border border-blue-500/30';
+            document.getElementById('diag-overhead-stats').innerText = 'Overhead: -- | Extra-Copy Rate: --';
+            document.getElementById('diag-cache-stats').innerText = 'KV Index Status: CHECKING';
+        }
+
+        async function triggerBenchmarkExecution() {
+            const btnText = document.getElementById('btn-text');
+            const btnIcon = document.getElementById('btn-icon');
+            if (btnText) btnText.innerText = "Running Trial...";
+            if (btnIcon) btnIcon.className = "fa-solid fa-spinner fa-spin";
+
+            resetDiagnosticUI();
+
+            // Use non-blocking async macro-task
+            await new Promise(resolve => setTimeout(resolve, 20));
+
+            try {
+                const result = executeSingleTrialCore(getUIParams());
+                updateDashboardWithResults(result);
+            } catch (e) {
+                logBenchmark(`Runtime Error: ${e.message}`, 'error');
+                setDiagnosticFailure("Execution Exception", e.message);
+                console.error(e);
+            } finally {
+                if (btnText) btnText.innerText = "Execute Single Trial";
+                if (btnIcon) btnIcon.className = "fa-solid fa-play";
+            }
+        }
+
+        function setDiagnosticFailure(title, reason) {
+            document.getElementById('status-badge').className = 'text-[10px] px-2 py-0.5 rounded font-mono bg-rose-500/20 text-rose-300 border border-rose-500/30';
+            document.getElementById('status-badge').innerHTML = '<i class="fa-solid fa-circle-xmark text-[8px]"></i> Error';
+
+            document.getElementById('diag-title').innerText = title;
+            document.getElementById('diag-badge').innerText = 'Validation Failed';
+            document.getElementById('diag-badge').className = 'text-[10px] px-2 py-0.5 rounded font-mono bg-rose-500/20 text-rose-300 border border-rose-500/30';
+            document.getElementById('diag-desc').innerText = reason;
+            document.getElementById('diag-icon-i').className = 'fa-solid fa-triangle-exclamation text-rose-400';
+        }
+
+        function getUIParams() {
+            return {
+                seedVal: parseInt(document.getElementById('param-seed').value) || 42,
+                mode: document.getElementById('param-mode').value,
+                scenario: document.getElementById('param-scenario').value,
+                seqLen: parseInt(document.getElementById('param-seqLen').value) || 16000,
+                numDevices: parseInt(document.getElementById('param-devices').value) || 16,
+                overlapPct: modeVal => (modeVal === 'track2' ? 0 : parseInt(document.getElementById('param-overlapRate').value) || 0),
+                applyCorrection: document.getElementById('param-applyCorrection').checked,
+                strategy: document.getElementById('param-strategy').value,
+                errorTol: parseFloat(document.getElementById('param-errorTolerance').value) || 1e-3,
+                includePreproc: document.getElementById('param-includePreproc').checked,
+                dim: parseInt(document.getElementById('param-dim').value) || 64
+            };
+        }
+
+        function executeSingleTrialCore(params) {
+            const { seedVal, mode, scenario, seqLen, numDevices, applyCorrection, strategy, errorTol, includePreproc, dim } = params;
+            const overlapPct = (mode === 'track2') ? 0 : (params.overlapPct ? params.overlapPct(mode) : 0);
+            const scale = 1.0 / Math.sqrt(dim);
+
+            const prng = mulberry32(seedVal);
+
+            // 1. Generate Synthetic Data according to Scenario Pattern
+            const Q = createRandomVector(dim, prng);
+            const qNorm = vectorNorm(Q);
+            const globalK = new Float32Array(seqLen * dim);
+            const globalV = new Float32Array(seqLen * dim);
+
+            let maxVNorm = 0;
+
+            // Scaled Needle Magnitudes calibrated to Sequence Length Math: score target ~ ln(N) + 2.5
+            const logN = Math.log(seqLen);
+            const needleTargetScore = logN + 2.5; 
+            const needleVectorNormTarget = (needleTargetScore * Math.sqrt(dim)) / Math.max(qNorm, 1e-6);
+
+            for (let i = 0; i < seqLen; i++) {
+                const offset = i * dim;
+                // Generate values
+                for (let k = 0; k < dim; k++) globalV[offset + k] = (prng() - 0.5) * 2.0;
+                let vNorm = 0;
+                for (let k = 0; k < dim; k++) vNorm += globalV[offset + k] * globalV[offset + k];
+                vNorm = Math.sqrt(vNorm);
+                if (vNorm > maxVNorm) maxVNorm = vNorm;
+
+                // Generate Keys with Log-Scaled Salience
+                if (scenario === 'needle' && i === Math.floor(seqLen / 2)) {
+                    for (let k = 0; k < dim; k++) globalK[offset + k] = (Q[k] / qNorm) * needleVectorNormTarget + (prng() - 0.5) * 0.01;
+                } else if (scenario === 'multi-needle' && (i === Math.floor(seqLen*0.2) || i === Math.floor(seqLen*0.5) || i === Math.floor(seqLen*0.8))) {
+                    for (let k = 0; k < dim; k++) globalK[offset + k] = (Q[k] / qNorm) * (needleVectorNormTarget * 0.85) + (prng() - 0.5) * 0.02;
+                } else if (scenario === 'adversarial' && i < Math.floor(seqLen * 0.3)) {
+                    for (let k = 0; k < dim; k++) globalK[offset + k] = (Q[k] / qNorm) * (needleVectorNormTarget * 0.4) + (prng() - 0.5) * 0.1;
+                } else {
+                    for (let k = 0; k < dim; k++) globalK[offset + k] = (prng() - 0.5) * 2.0;
+                }
+            }
+
+            // 2. Full Baseline Attention Computation & Salience Mass Measurement
+            let fullMaxScore = -Infinity;
+            const fullScores = new Float32Array(seqLen);
+            for (let i = 0; i < seqLen; i++) {
+                const score = dotProductStrided(Q, globalK, i, dim) * scale;
+                fullScores[i] = score;
+                if (score > fullMaxScore) fullMaxScore = score;
+            }
+
+            let fullSumExp = 0;
+            for (let i = 0; i < seqLen; i++) {
+                const expVal = Math.exp(fullScores[i] - fullMaxScore);
+                fullScores[i] = expVal;
+                fullSumExp += expVal;
+            }
+
+            // Compute actual Needle Probability Mass
+            const needleIdx = Math.floor(seqLen / 2);
+            const needleAttentionMass = (fullScores[needleIdx] / fullSumExp) * 100;
+
+            const fullOutput = new Float32Array(dim);
+            for (let i = 0; i < seqLen; i++) {
+                const prob = fullScores[i] / fullSumExp;
+                const offset = i * dim;
+                for (let k = 0; k < dim; k++) fullOutput[k] += prob * globalV[offset + k];
+            }
+
+            // Baseline FLOPs: QK dot products (2*dim*N), Value weighted sum (2*dim*N)
+            const baselineQKFLOPs = seqLen * (2 * dim);
+            const baselineValueFLOPs = seqLen * (2 * dim);
+            const baselineTotalFLOPs = baselineQKFLOPs + baselineValueFLOPs;
+
+            // 3. Disjoint Control Model (Standard Distributed Softmax)
+            const baseChunkSize = Math.floor(seqLen / numDevices);
+            const disjointResults = [];
+
+            for (let d = 0; d < numDevices; d++) {
+                const startIdx = d * baseChunkSize;
+                const endIdx = (d === numDevices - 1) ? seqLen : (d + 1) * baseChunkSize;
+                const count = endIdx - startIdx;
+
+                let localMax = -Infinity;
+                const localScores = new Float32Array(count);
+                for (let i = 0; i < count; i++) {
+                    const globalIdx = startIdx + i;
+                    const score = dotProductStrided(Q, globalK, globalIdx, dim) * scale;
+                    localScores[i] = score;
+                    if (score > localMax) localMax = score;
+                }
+
+                let localSumExp = 0;
+                for (let i = 0; i < count; i++) {
+                    localScores[i] = Math.exp(localScores[i] - localMax);
+                    localSumExp += localScores[i];
+                }
+
+                const localOutput = new Float32Array(dim);
+                for (let i = 0; i < count; i++) {
+                    const globalIdx = startIdx + i;
+                    const weight = localScores[i] / localSumExp;
+                    const offset = globalIdx * dim;
+                    for (let k = 0; k < dim; k++) localOutput[k] += weight * globalV[offset + k];
+                }
+
+                disjointResults.push({ localMax, localSumExp, localOutput });
+            }
+
+            let disjointMasterMax = -Infinity;
+            for (let d = 0; d < numDevices; d++) {
+                if (disjointResults[d].localMax > disjointMasterMax) disjointMasterMax = disjointResults[d].localMax;
+            }
+
+            const disjointWeights = new Float32Array(numDevices);
+            let totalDisjointWeight = 0;
+            for (let d = 0; d < numDevices; d++) {
+                const W_d = disjointResults[d].localSumExp * Math.exp(disjointResults[d].localMax - disjointMasterMax);
+                disjointWeights[d] = W_d;
+                totalDisjointWeight += W_d;
+            }
+
+            const disjointOutput = new Float32Array(dim);
+            for (let d = 0; d < numDevices; d++) {
+                const normW = disjointWeights[d] / totalDisjointWeight;
+                for (let k = 0; k < dim; k++) disjointOutput[k] += normW * disjointResults[d].localOutput[k];
+            }
+
+            const disjointRelErr = computeRelativeError(fullOutput, disjointOutput);
+
+            // 4. Token Partitioning Strategy
+            const deviceTokenSets = Array.from({length: numDevices}, () => []);
+            const totalTokenCounts = new Float32Array(seqLen);
+
+            if (strategy === 'pseudorandom') {
+                for (let tIdx = 0; tIdx < seqLen; tIdx++) {
+                    const primaryDev = fmix32(tIdx, seedVal) % numDevices;
+                    deviceTokenSets[primaryDev].push(tIdx);
+                    totalTokenCounts[tIdx]++;
+
+                    if (overlapPct > 0 && (prng() < (overlapPct / 100.0))) {
+                        let secondDev = fmix32(tIdx, seedVal + 0x1337) % numDevices;
+                        if (secondDev === primaryDev) secondDev = (primaryDev + 1) % numDevices;
+                        deviceTokenSets[secondDev].push(tIdx);
+                        totalTokenCounts[tIdx]++;
+                    }
+                }
+            } else {
+                const marginSize = Math.floor(baseChunkSize * (overlapPct / 100.0));
+                for (let d = 0; d < numDevices; d++) {
+                    const primaryStart = d * baseChunkSize;
+                    const primaryEnd = (d === numDevices - 1) ? seqLen : (d + 1) * baseChunkSize;
+
+                    const overlapStart = Math.max(0, primaryStart - Math.floor(marginSize / 2));
+                    const overlapEnd = Math.min(seqLen, primaryEnd + Math.ceil(marginSize / 2));
+
+                    for (let idx = overlapStart; idx < overlapEnd; idx++) {
+                        deviceTokenSets[d].push(idx);
+                        totalTokenCounts[idx]++;
+                    }
+                }
+            }
+
+            let sumWorkerTokens = 0;
+            let sumExtraCopies = 0;
+            const uniqueTokensInPartition = new Set();
+            for (let d = 0; d < numDevices; d++) {
+                sumWorkerTokens += deviceTokenSets[d].length;
+                for (let t of deviceTokenSets[d]) uniqueTokensInPartition.add(t);
+            }
+            for (let t = 0; t < seqLen; t++) sumExtraCopies += (totalTokenCounts[t] - 1);
+
+            const allTokensCovered = (uniqueTokensInPartition.size === seqLen);
+
+            // FLOP Accounting Tracking
+            let targetTotalFLOPs = 0;
+            let preprocFLOPs = 0;
+            let screeningFLOPs = 0;
+            let boundFLOPsTotal = 0;
+            let targetQKFLOPs = 0;
+            let targetValueFLOPs = 0;
+
+            let targetOutput = new Float32Array(dim);
+            let omittedProbBound = 0;
+            let retainedBlockCount = numDevices;
+            let certifiedErrorBound = 0;
+            let toleranceSatisfied = true;
+            let boundSoundnessValid = true;
+            let isCacheHit = false;
+
+            if (mode === 'track1') {
+                targetQKFLOPs = sumWorkerTokens * (2 * dim);
+                targetValueFLOPs = sumWorkerTokens * (2 * dim);
+                targetTotalFLOPs = targetQKFLOPs + targetValueFLOPs;
+
+                const overlapResults = [];
+
+                for (let d = 0; d < numDevices; d++) {
+                    const tokenIndices = deviceTokenSets[d];
+                    const count = tokenIndices.length;
+
+                    let localMax = -Infinity;
+                    const localScores = new Float32Array(count);
+
+                    for (let i = 0; i < count; i++) {
+                        const globalIdx = tokenIndices[i];
+                        let score = dotProductStrided(Q, globalK, globalIdx, dim) * scale;
+                        if (applyCorrection && totalTokenCounts[globalIdx] > 1) {
+                            score -= Math.log(totalTokenCounts[globalIdx]);
+                        }
+                        localScores[i] = score;
+                        if (score > localMax) localMax = score;
+                    }
+
+                    let localSumExp = 0;
+                    for (let i = 0; i < count; i++) {
+                        localScores[i] = Math.exp(localScores[i] - localMax);
+                        localSumExp += localScores[i];
+                    }
+
+                    const localOutput = new Float32Array(dim);
+                    for (let i = 0; i < count; i++) {
+                        const globalIdx = tokenIndices[i];
+                        const weight = localScores[i] / localSumExp;
+                        const offset = globalIdx * dim;
+                        for (let k = 0; k < dim; k++) localOutput[k] += weight * globalV[offset + k];
+                    }
+
+                    overlapResults.push({ localMax, localSumExp, localOutput });
+                }
+
+                let overlapMasterMax = -Infinity;
+                for (let d = 0; d < numDevices; d++) {
+                    if (overlapResults[d].localMax > overlapMasterMax) overlapMasterMax = overlapResults[d].localMax;
+                }
+
+                const overlapWeights = new Float32Array(numDevices);
+                let totalOverlapW = 0;
+                for (let d = 0; d < numDevices; d++) {
+                    const W_d = overlapResults[d].localSumExp * Math.exp(overlapResults[d].localMax - overlapMasterMax);
+                    overlapWeights[d] = W_d;
+                    totalOverlapW += W_d;
+                }
+
+                for (let d = 0; d < numDevices; d++) {
+                    const normW = overlapWeights[d] / totalOverlapW;
+                    for (let k = 0; k < dim; k++) targetOutput[k] += normW * overlapResults[d].localOutput[k];
+                }
+
+            } else {
+                // TRACK 2 & 3: Persistent KV Centroid/Radius Cache & Adaptive Omitted-Mass Pruning
+                const cacheKey = `${seedVal}_${scenario}_${seqLen}_${numDevices}_${dim}_${overlapPct}_${strategy}`;
+                let blockSummaries = null;
+
+                // Accurate Preproc FLOPs: 2*N*d (Centroids) + 3*N*d (Radii) = 5*N*d FLOPs
+                preprocFLOPs = 5 * seqLen * dim;
+
+                if (PERSISTENT_KV_CACHE.has(cacheKey)) {
+                    blockSummaries = PERSISTENT_KV_CACHE.get(cacheKey);
+                    isCacheHit = true;
+                } else {
+                    // Compute & Cache
+                    blockSummaries = [];
+                    for (let d = 0; d < numDevices; d++) {
+                        const tokens = deviceTokenSets[d];
+                        const count = tokens.length;
+                        const centroid = new Float32Array(dim);
+                        
+                        for (let i = 0; i < count; i++) {
+                            const offset = tokens[i] * dim;
+                            for (let k = 0; k < dim; k++) centroid[k] += globalK[offset + k];
+                        }
+                        if (count > 0) for (let k = 0; k < dim; k++) centroid[k] /= count;
+
+                        let radiusSq = 0;
+                        for (let i = 0; i < count; i++) {
+                            const offset = tokens[i] * dim;
+                            let distSq = 0;
+                            for (let k = 0; k < dim; k++) {
+                                const diff = globalK[offset + k] - centroid[k];
+                                distSq += diff * diff;
+                            }
+                            if (distSq > radiusSq) radiusSq = distSq;
+                        }
+                        blockSummaries.push({ blockIdx: d, centroid, radius: Math.sqrt(radiusSq), tokens, count });
+                    }
+                    PERSISTENT_KV_CACHE.set(cacheKey, blockSummaries);
+                }
+
+                if (includePreproc) {
+                    targetTotalFLOPs += preprocFLOPs;
+                }
+
+                // Step B: Per-Query Screening via Cauchy-Schwarz Bounds U_B
+                screeningFLOPs = numDevices * (2 * dim + 2);
+
+                for (let d = 0; d < numDevices; d++) {
+                    const b = blockSummaries[d];
+                    let qDotC = 0;
+                    for (let k = 0; k < dim; k++) qDotC += Q[k] * b.centroid[k];
+                    b.UB = (qDotC + qNorm * b.radius) * scale;
+                }
+
+                // Sort blocks by upper bound descending
+                const sortedBlocks = [...blockSummaries].sort((a, b) => b.UB - a.UB);
+
+                const retainedBlocks = [];
+                const prunedBlocks = [];
+
+                retainedBlocks.push(sortedBlocks[0]);
+                for (let i = 1; i < sortedBlocks.length; i++) prunedBlocks.push(sortedBlocks[i]);
+
+                const retainedTokenCounts = new Float32Array(seqLen);
+                for (let b of retainedBlocks) {
+                    for (let t of b.tokens) retainedTokenCounts[t]++;
+                }
+
+                // OPTIMIZED MASS BOUND OVER UNIQUE UN-RETAINED TOKENS
+                function computeOptimizedOmittedMassBound(retainedList, prunedList) {
+                    if (prunedList.length === 0) return { bound: 0, flops: 0 };
+
+                    let flopsIncurred = 0;
+                    let maxRetScore = -Infinity;
+
+                    // Evaluate dot products for score max
+                    for (let b of retainedList) {
+                        flopsIncurred += b.tokens.length * (2 * dim);
+                        for (let t of b.tokens) {
+                            const sc = dotProductStrided(Q, globalK, t, dim) * scale;
+                            if (sc > maxRetScore) maxRetScore = sc;
+                        }
+                    }
+
+                    let Z_R = 0;
+                    for (let b of retainedList) {
+                        for (let t of b.tokens) {
+                            const c_j_ret = applyCorrection ? Math.max(1, retainedTokenCounts[t]) : 1;
+                            Z_R += Math.exp((dotProductStrided(Q, globalK, t, dim) * scale) - maxRetScore) / c_j_ret;
+                            flopsIncurred += (2 * dim) + 2; 
+                        }
+                    }
+
+                    // Identify unique un-retained token IDs
+                    let Z_P_hat = 0;
+                    const prunedBlockUBMap = new Map();
+                    for (let b of prunedList) {
+                        for (let t of b.tokens) {
+                            if (retainedTokenCounts[t] === 0) {
+                                const currentUB = prunedBlockUBMap.get(t);
+                                if (currentUB === undefined || b.UB > currentUB) {
+                                    prunedBlockUBMap.set(t, b.UB);
+                                }
+                            }
+                        }
+                    }
+
+                    for (let [t, bestUB] of prunedBlockUBMap.entries()) {
+                        Z_P_hat += Math.exp(bestUB - maxRetScore);
+                        flopsIncurred += 2;
+                    }
+
+                    // Incorporate 5% numerical FP safety margin
+                    const SAFETY_MARGIN = 1.05;
+                    Z_P_hat *= SAFETY_MARGIN;
+
+                    const boundVal = Z_P_hat / (Z_R + Z_P_hat);
+                    return { bound: boundVal, flops: flopsIncurred };
+                }
+
+                while (prunedBlocks.length > 0) {
+                    const boundRes = computeOptimizedOmittedMassBound(retainedBlocks, prunedBlocks);
+                    omittedProbBound = boundRes.bound;
+                    boundFLOPsTotal += boundRes.flops;
+
+                    certifiedErrorBound = 2 * maxVNorm * omittedProbBound;
+
+                    if (certifiedErrorBound <= errorTol) {
+                        break;
+                    }
+
+                    const nextBlock = prunedBlocks.shift();
+                    retainedBlocks.push(nextBlock);
+                    for (let t of nextBlock.tokens) retainedTokenCounts[t]++;
+                }
+
+                if (prunedBlocks.length === 0) {
+                    omittedProbBound = 0;
+                    certifiedErrorBound = 0;
+                } else {
+                    const finalBoundRes = computeOptimizedOmittedMassBound(retainedBlocks, prunedBlocks);
+                    omittedProbBound = finalBoundRes.bound;
+                    boundFLOPsTotal += finalBoundRes.flops;
+                    certifiedErrorBound = 2 * maxVNorm * omittedProbBound;
+                }
+
+                toleranceSatisfied = (certifiedErrorBound <= errorTol);
+                retainedBlockCount = retainedBlocks.length;
+
+                if (!applyCorrection && sumExtraCopies > 0) {
+                    boundSoundnessValid = false;
+                }
+
+                // Evaluate Retained Blocks
+                const retainedResults = [];
+                for (let b of retainedBlocks) {
+                    const count = b.count;
+                    targetQKFLOPs += count * (2 * dim);
+                    targetValueFLOPs += count * (2 * dim);
+
+                    let localMax = -Infinity;
+                    const localScores = new Float32Array(count);
+                    for (let i = 0; i < count; i++) {
+                        const globalIdx = b.tokens[i];
+                        let score = dotProductStrided(Q, globalK, globalIdx, dim) * scale;
+                        
+                        if (applyCorrection && retainedTokenCounts[globalIdx] > 1) {
+                            score -= Math.log(retainedTokenCounts[globalIdx]);
+                        }
+                        localScores[i] = score;
+                        if (score > localMax) localMax = score;
+                    }
+
+                    let localSumExp = 0;
+                    for (let i = 0; i < count; i++) {
+                        localScores[i] = Math.exp(localScores[i] - localMax);
+                        localSumExp += localScores[i];
+                    }
+
+                    const localOutput = new Float32Array(dim);
+                    for (let i = 0; i < count; i++) {
+                        const globalIdx = b.tokens[i];
+                        const weight = localScores[i] / localSumExp;
+                        const offset = globalIdx * dim;
+                        for (let k = 0; k < dim; k++) localOutput[k] += weight * globalV[offset + k];
+                    }
+
+                    retainedResults.push({ localMax, localSumExp, localOutput });
+                }
+
+                targetTotalFLOPs += (screeningFLOPs + boundFLOPsTotal + targetQKFLOPs + targetValueFLOPs);
+
+                let activeMasterMax = -Infinity;
+                for (let r of retainedResults) if (r.localMax > activeMasterMax) activeMasterMax = r.localMax;
+
+                let totalActiveW = 0;
+                const rescaledWeights = new Float32Array(retainedResults.length);
+                for (let i = 0; i < retainedResults.length; i++) {
+                    const W = retainedResults[i].localSumExp * Math.exp(retainedResults[i].localMax - activeMasterMax);
+                    rescaledWeights[i] = W;
+                    totalActiveW += W;
+                }
+
+                for (let i = 0; i < retainedResults.length; i++) {
+                    const normW = rescaledWeights[i] / totalActiveW;
+                    for (let k = 0; k < dim; k++) targetOutput[k] += normW * retainedResults[i].localOutput[k];
+                }
+            }
+
+            const targetRelErr = computeRelativeError(fullOutput, targetOutput);
+            const actualL2Error = computeL2Error(fullOutput, targetOutput);
+            const empiricalBoundHolds = (mode === 'track1') ? true : (actualL2Error <= certifiedErrorBound + 1e-9);
+            const netFlopSavings = ((1 - (targetTotalFLOPs / baselineTotalFLOPs)) * 100);
+
+            return {
+                params,
+                fullOutput,
+                disjointOutput,
+                targetOutput,
+                disjointRelErr,
+                targetRelErr,
+                actualL2Error,
+                omittedProbBound,
+                certifiedErrorBound,
+                toleranceSatisfied,
+                boundSoundnessValid,
+                empiricalBoundHolds,
+                needleAttentionMass,
+                isCacheHit,
+                netFlopSavings,
+                baselineTotalFLOPs,
+                targetTotalFLOPs,
+                preprocFLOPs,
+                retainedBlockCount,
+                allTokensCovered,
+                realizedOverhead: sumWorkerTokens / seqLen,
+                extraCopyRate: sumExtraCopies / seqLen,
+                workerCounts: deviceTokenSets.map(s => s.length)
+            };
+        }
+
+        function updateDashboardWithResults(res) {
+            const { mode, applyCorrection } = res.params;
+
+            logBenchmark(`Trial complete. Target RelErr = ${res.targetRelErr < 1e-4 ? res.targetRelErr.toExponential(2) : res.targetRelErr.toFixed(5)}, Needle Mass = ${res.needleAttentionMass.toFixed(1)}%, Cache = ${res.isCacheHit ? 'REUSED' : 'COMPUTED'}`, 'success');
+
+            document.getElementById('metric-disjoint-relerr').innerText = res.disjointRelErr < 1e-4 ? res.disjointRelErr.toExponential(2) : res.disjointRelErr.toFixed(4);
+            document.getElementById('metric-needle-mass').innerText = `Needle Mass: ${res.needleAttentionMass.toFixed(1)}%`;
+
+            document.getElementById('metric-overlap-relerr').innerText = res.targetRelErr < 1e-4 ? res.targetRelErr.toExponential(2) : res.targetRelErr.toFixed(4);
+            document.getElementById('metric-max-abs-err').innerText = `L2 Err: ${res.actualL2Error.toExponential(2)} | Rel: ${res.targetRelErr < 1e-4 ? res.targetRelErr.toExponential(1) : res.targetRelErr.toFixed(4)}`;
+            
+            document.getElementById('metric-omitted-mass').innerText = res.certifiedErrorBound < 1e-4 ? res.certifiedErrorBound.toExponential(2) : res.certifiedErrorBound.toFixed(5);
+            document.getElementById('metric-bound-guarantee').innerText = `Mass p_P: ${res.omittedProbBound < 1e-4 ? res.omittedProbBound.toExponential(1) : res.omittedProbBound.toFixed(4)} | Tol: ${res.params.errorTol.toExponential(1)}`;
+
+            const lblFlop = document.getElementById('lbl-flop-metric');
+            const metricFlop = document.getElementById('metric-flop-savings');
+            const subFlop = document.getElementById('metric-screening-cost');
+            const iconFlop = document.getElementById('icon-flop-savings');
+
+            if (mode === 'track1') {
+                const redundancyPct = ((res.targetTotalFLOPs / res.baselineTotalFLOPs - 1) * 100).toFixed(1);
+                if (lblFlop) lblFlop.innerText = "Partition Redundancy";
+                if (metricFlop) {
+                    metricFlop.innerText = `+${redundancyPct}% Overhead`;
+                    metricFlop.className = "text-base sm:text-xl font-bold font-mono text-indigo-400 my-1 truncate";
+                }
+                if (subFlop) subFlop.innerText = `Exact Multiplicity Test (${res.targetTotalFLOPs.toLocaleString()} FLOPs)`;
+                if (iconFlop) iconFlop.className = "fa-solid fa-object-group text-indigo-400 text-xs shrink-0 ml-1";
+            } else {
+                if (lblFlop) lblFlop.innerText = "Net FLOP Efficiency";
+                if (res.netFlopSavings >= 0) {
+                    if (metricFlop) {
+                        metricFlop.innerText = `+${res.netFlopSavings.toFixed(1)}% Saved`;
+                        metricFlop.className = "text-base sm:text-xl font-bold font-mono text-emerald-400 my-1 truncate";
+                    }
+                    if (subFlop) subFlop.innerText = `Retained ${res.retainedBlockCount}/${res.params.numDevices} blocks (${res.targetTotalFLOPs.toLocaleString()} FLOPs)`;
+                    if (iconFlop) iconFlop.className = "fa-solid fa-bolt text-emerald-400 text-xs shrink-0 ml-1";
+                } else {
+                    const extraFlopPct = Math.abs(res.netFlopSavings).toFixed(1);
+                    if (metricFlop) {
+                        metricFlop.innerText = `-${extraFlopPct}% (Overhead)`;
+                        metricFlop.className = "text-base sm:text-xl font-bold font-mono text-amber-400 my-1 truncate";
+                    }
+                    if (subFlop) subFlop.innerText = "Dense scenario or preproc included. Toggle cached serving mode.";
+                    if (iconFlop) iconFlop.className = "fa-solid fa-triangle-exclamation text-amber-400 text-xs shrink-0 ml-1";
+                }
+            }
+
+            document.getElementById('diag-overhead-stats').innerText = `Overhead: ${res.realizedOverhead.toFixed(3)}x | Extra-Copy Rate: ${res.extraCopyRate.toFixed(3)}`;
+            document.getElementById('diag-cache-stats').innerText = `KV Index Status: ${res.isCacheHit ? 'CACHED (0 Online Preproc)' : 'COMPUTED'}`;
+
+            const statusBadge = document.getElementById('status-badge');
+            const diagTitle = document.getElementById('diag-title');
+            const diagBadge = document.getElementById('diag-badge');
+            const diagDesc = document.getElementById('diag-desc');
+            const diagIcon = document.getElementById('diag-icon-i');
+
+            if (mode === 'track1') {
+                if (applyCorrection && res.allTokensCovered && res.targetRelErr < 1e-4) {
+                    statusBadge.className = 'text-[10px] px-2 py-0.5 rounded font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+                    statusBadge.innerHTML = '<i class="fa-solid fa-check text-[8px]"></i> Validated';
+
+                    diagTitle.innerText = 'Numerically Consistent Exact Match';
+                    diagBadge.innerText = 'Exact Dual Match';
+                    diagBadge.className = 'text-[10px] px-2 py-0.5 rounded font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+                    diagDesc.innerText = 'Exact dual preservation verified in real arithmetic.';
+                    diagIcon.className = 'fa-solid fa-check-double text-emerald-400';
+                } else if (!applyCorrection) {
+                    statusBadge.className = 'text-[10px] px-2 py-0.5 rounded font-mono bg-rose-500/20 text-rose-300 border border-rose-500/30';
+                    statusBadge.innerHTML = '<i class="fa-solid fa-triangle-exclamation text-[8px]"></i> Uncorrected';
+
+                    diagTitle.innerText = 'Uncorrected Multiplicity Bias Active';
+                    diagBadge.innerText = 'Bias Detected';
+                    diagBadge.className = 'text-[10px] px-2 py-0.5 rounded font-mono bg-rose-500/20 text-rose-300 border border-rose-500/30';
+                    diagDesc.innerText = 'Duplicate token copies cause logit aggregation distortion.';
+                    diagIcon.className = 'fa-solid fa-triangle-exclamation text-rose-400';
+                } else {
+                    setDiagnosticFailure("Partition Error", "Token coverage incomplete across worker partitions.");
+                }
+            } else {
+                if (!res.boundSoundnessValid) {
+                    statusBadge.className = 'text-[10px] px-2 py-0.5 rounded font-mono bg-rose-500/20 text-rose-300 border border-rose-500/30';
+                    statusBadge.innerHTML = '<i class="fa-solid fa-triangle-exclamation text-[8px]"></i> Uncertified';
+
+                    diagTitle.innerText = 'Guarantee Void: Uncorrected Multiplicity';
+                    diagBadge.innerText = 'Bound Invalidated';
+                    diagBadge.className = 'text-[10px] px-2 py-0.5 rounded font-mono bg-rose-500/20 text-rose-300 border border-rose-500/30';
+                    diagDesc.innerText = 'Multiplicity correction disabled; omitted-mass bound cannot certify uncorrected multi-copy distribution.';
+                    diagIcon.className = 'fa-solid fa-triangle-exclamation text-rose-400';
+                } else if (res.toleranceSatisfied && res.empiricalBoundHolds) {
+                    statusBadge.className = 'text-[10px] px-2 py-0.5 rounded font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+                    statusBadge.innerHTML = '<i class="fa-solid fa-shield-halved text-[8px]"></i> Verified';
+
+                    diagTitle.innerText = 'Verified Omitted-Mass Bound & Tolerance';
+                    diagBadge.innerText = 'Bound Verified';
+                    diagBadge.className = 'text-[10px] px-2 py-0.5 rounded font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+                    diagDesc.innerText = `Empirical L2 error (${res.actualL2Error.toExponential(2)}) <= Bound (${res.certifiedErrorBound.toExponential(2)}) <= Tol (${res.params.errorTol.toExponential(1)}). Retained ${res.retainedBlockCount}/${res.params.numDevices} blocks.`;
+                    diagIcon.className = 'fa-solid fa-shield-halved text-emerald-400';
+                } else {
+                    statusBadge.className = 'text-[10px] px-2 py-0.5 rounded font-mono bg-amber-500/20 text-amber-300 border border-amber-500/30';
+                    statusBadge.innerHTML = '<i class="fa-solid fa-circle-exclamation text-[8px]"></i> Limit Reached';
+
+                    diagTitle.innerText = 'All Blocks Retained / Limit Reached';
+                    diagBadge.innerText = 'Full Density';
+                    diagBadge.className = 'text-[10px] px-2 py-0.5 rounded font-mono bg-amber-500/20 text-amber-300 border border-amber-500/30';
+                    diagDesc.innerText = `All ${res.retainedBlockCount} worker blocks retained. Certified bound = ${res.certifiedErrorBound.toExponential(2)}.`;
+                    diagIcon.className = 'fa-solid fa-circle-exclamation text-amber-400';
+                }
+            }
+
+            // Update Charts
+            if (chartWeights) {
+                chartWeights.data.labels = Array.from({length: res.params.numDevices}, (_, i) => `Node #${i+1}`);
+                chartWeights.data.datasets[0].data = res.workerCounts;
+                chartWeights.update();
+            }
+
+            if (chartOutput) {
+                chartOutput.data.datasets[0].data = Array.from(res.fullOutput.slice(0, 32));
+                chartOutput.data.datasets[1].data = Array.from(res.disjointOutput.slice(0, 32));
+                chartOutput.data.datasets[2].data = Array.from(res.targetOutput.slice(0, 32));
+                chartOutput.update();
+            }
+        }
+
+        async function triggerMultiSeedSuite() {
+            clearBenchmarkLog();
+            logBenchmark("Running 10-Trial Statistical Benchmark Suite across random PRNG seeds...", "highlight");
+
+            const params = getUIParams();
+            const errors = [];
+            const savings = [];
+            let tolFailures = 0;
+            let boundViolations = 0;
+            let uncertifiedCount = 0;
+
+            for (let s = 1; s <= 10; s++) {
+                const trialParams = { ...params, seedVal: s * 100 + 42 };
+                const res = executeSingleTrialCore(trialParams);
+                errors.push(res.targetRelErr);
+                savings.push(res.netFlopSavings);
+
+                if (!res.toleranceSatisfied) tolFailures++;
+                if (!res.empiricalBoundHolds) boundViolations++;
+                if (!res.boundSoundnessValid) uncertifiedCount++;
+
+                await new Promise(resolve => setTimeout(resolve, 10));
+            }
+
+            errors.sort((a, b) => a - b);
+            savings.sort((a, b) => a - b);
+
+            // Correct Mathematical Median (Average of two middle elements for N=10)
+            const medianErr = (errors[4] + errors[5]) / 2.0;
+            const maxErr = errors[9];
+            const medianSavings = (savings[4] + savings[5]) / 2.0;
+
+            logBenchmark(`Suite Statistics (10 Seeds): Median RelErr = ${medianErr.toExponential(2)}, Max RelErr = ${maxErr.toExponential(2)}, Median FLOP Savings = ${medianSavings >= 0 ? '+' : ''}${medianSavings.toFixed(1)}%`, "success");
+            logBenchmark(`Suite Integrity: Tol Failures = ${tolFailures}/10, Bound Violations = ${boundViolations}/10, Uncertified = ${uncertifiedCount}/10`, tolFailures === 0 && boundViolations === 0 ? "success" : "warn");
+        }
+
+        const PRESETS = {
+            'preset-dedup': `// Measured Multiplicity Preservation Proof
+function testMultiplicityCorrection() {
+    const rawScores = [3.0, 1.5, 4.2, 0.9]; 
+    const multiplicities = [1, 1, 2, 1]; 
+    const values = [[1, 0], [0, 1], [2, 2], [1, 1]];
+
+    console.log("Raw logits s_j:", rawScores);
+    console.log("Multiplicities c_j:", multiplicities);
+
+    // Score correction s'_j = s_j - log(c_j)
+    const corrected = rawScores.map((s, idx) => s - Math.log(multiplicities[idx]));
+
+    // Baseline Denominator Z & Vector U
+    const Z_base = rawScores.reduce((acc, s) => acc + Math.exp(s), 0);
+    const U_base = [0, 0];
+    rawScores.forEach((s, idx) => {
+        const expS = Math.exp(s);
+        U_base[0] += expS * values[idx][0];
+        U_base[1] += expS * values[idx][1];
+    });
+
+    // Overlapping Aggregated Sum with Correction
+    let Z_over = 0;
+    const U_over = [0, 0];
+    corrected.forEach((s, idx) => {
+        const copies = multiplicities[idx];
+        const expS = Math.exp(s) * copies;
+        Z_over += expS;
+        U_over[0] += expS * values[idx][0];
+        U_over[1] += expS * values[idx][1];
+    });
+
+    const O_base = U_base.map(u => u / Z_base);
+    const O_over = U_over.map(u => u / Z_over);
+
+    const zErr = Math.abs(Z_base - Z_over) / Z_base;
+    const oErr = Math.hypot(O_base[0]-O_over[0], O_base[1]-O_over[1]);
+
+    console.log("Measured Z Relative Error:", zErr.toExponential(4));
+    console.log("Measured Output Vector Absolute Error:", oErr.toExponential(4));
+
+    return "Dual preservation verified with measured output error: " + oErr.toExponential(4);
+}
+
+testMultiplicityCorrection();`,
+
+            'preset-hash': `// fmix32 Integer Mixer & Distribution Benchmark
+function testMixerAndPRNG(numTokens, numDevices, seed = 42) {
+    function fmix32(key, seed = 0x977f23a7) {
+        let h = (key ^ seed) >>> 0;
+        h = Math.imul(h ^ (h >>> 16), 0x85ebca6b);
+        h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
+        return (h ^ (h >>> 16)) >>> 0;
+    }
+
+    const counts = Array(numDevices).fill(0);
+    for (let t = 0; t < numTokens; t++) {
+        const dev = fmix32(t, seed) % numDevices;
+        counts[dev]++;
+    }
+
+    console.log(\`fmix32 Token Distribution (\${numTokens} tokens, \${numDevices} workers):\`, counts);
+    return "fmix32 integer mixer test complete.";
+}
+
+testMixerAndPRNG(10000, 8, 42);`,
+
+            'preset-pruning': `// Provable Omitted Mass Bounding Test Over Unique Tokens
+function testOmittedMassBound() {
+    const Z_R = 150.5; // Retained sum
+    const U_B_pruned = [1.2, 0.8, 0.4]; // Upper bounds of unique pruned tokens
+
+    let Z_P_hat = 0;
+    U_B_pruned.forEach((UB) => {
+        Z_P_hat += Math.exp(UB - 3.5); 
+    });
+
+    // 5% safety margin
+    Z_P_hat *= 1.05;
+
+    const p_P = Z_P_hat / (Z_R + Z_P_hat);
+    console.log("Retained Sum Z_R:", Z_R);
+    console.log("Upper Bounded Omitted Weight Z_P_hat:", Z_P_hat.toFixed(4));
+    console.log("Upper Bounded Omitted Mass p_P:", p_P.toFixed(6));
+
+    return "Optimized omitted mass bound p_P = " + p_P.toFixed(6);
+}
+
+testOmittedMassBound();`
+        };
+
+        function loadCodePreset() {
+            const key = document.getElementById('select-preset').value;
+            if (PRESETS[key]) {
+                document.getElementById('js-code-editor').value = PRESETS[key];
+            }
+        }
+
+        function clearConsole() {
+            document.getElementById('console-output').innerHTML = '';
+        }
+
+        // Isolated JS Sandbox Execution via iframe postMessage
+        function initSandboxIframe() {
+            const iframe = document.getElementById('sandbox-iframe');
+            const sandboxCode = `
+                <script>
+                    window.addEventListener('message', (event) => {
+                        const logs = [];
+                        const customConsole = {
+                            log: (...args) => logs.push(args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')),
+                            error: (...args) => logs.push('[ERROR] ' + args.map(a => String(a)).join(' '))
+                        };
+                        try {
+                            const runFn = new Function('console', event.data);
+                            const result = runFn(customConsole);
+                            event.source.postMessage({ success: true, logs, result }, '*');
+                        } catch (err) {
+                            event.source.postMessage({ success: false, error: err.message }, '*');
+                        }
+                    });
+                <\/script>
+            `;
+            iframe.srcdoc = sandboxCode;
+        }
+
+        function runCustomJS() {
+            const code = document.getElementById('js-code-editor').value;
+            const consoleOut = document.getElementById('console-output');
+            const iframe = document.getElementById('sandbox-iframe');
+
+            const handleResponse = (event) => {
+                window.removeEventListener('message', handleResponse);
+                const data = event.data;
+
+                const div = document.createElement('div');
+                div.className = "border-b border-slate-800/80 pb-2 mb-2 font-mono text-xs";
+
+                if (data.success) {
+                    (data.logs || []).forEach(l => {
+                        const p = document.createElement('p');
+                        p.className = 'text-slate-300';
+                        const span = document.createElement('span');
+                        span.className = 'text-indigo-400 me-1';
+                        span.textContent = '>';
+                        p.appendChild(span);
+                        p.appendChild(document.createTextNode(' ' + l));
+                        div.appendChild(p);
+                    });
+
+                    if (data.result !== undefined) {
+                        const p = document.createElement('p');
+                        p.className = 'text-emerald-400 font-semibold mt-1';
+                        p.textContent = 'Return: ' + String(data.result);
+                        div.appendChild(p);
+                    }
+                } else {
+                    div.className = "text-rose-400 border-b border-slate-800 pb-2 mb-2 font-mono text-xs";
+                    div.textContent = `Runtime Error: ${data.error}`;
+                }
+
+                consoleOut.appendChild(div);
+                consoleOut.scrollTop = consoleOut.scrollHeight;
+            };
+
+            window.addEventListener('message', handleResponse);
+            iframe.contentWindow.postMessage(code, '*');
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            bindInputs();
+            initCharts();
+            initSandboxIframe();
+            loadCodePreset();
+            triggerBenchmarkExecution();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,32 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install pinned dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Compile packages
+        run: python -m compileall -q app distributed_llm
+      - name: Run tests
+        env:
+          LAB_OUTPUT_DIR: ${{ runner.temp }}/lab-output
+        run: python -m pytest -q
+      - name: Upload test output on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-output
+          path: ${{ runner.temp }}/lab-output
+          if-no-files-found: ignore
+          retention-days: 7
