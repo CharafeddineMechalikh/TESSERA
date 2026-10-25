@@ -77,7 +77,34 @@ own.
 ## RAM admission
 
 Two separate checks, both using `psutil` and both treating a failed probe
-(`-1.0`) as unknown rather than as a refusal.
+(`-1.0`) as unknown rather than as a refusal. Alongside them the run checks free
+disk twice, and both model-bearing subprocesses re-check
+`LAB_MIN_AVAILABLE_RAM_GB`. The run is accepted before any of this: the gates fire
+inside the worker thread, in the order below, and each message names the knob to
+turn.
+
+```mermaid
+flowchart LR
+    A["run accepted<br/>worker thread starts"] --> B{"disk<br/>free >= LAB_MIN_FREE_DISK_GB"}
+    B -- "short" --> X1["run fails<br/>names the volume"]
+    B -- "ok" --> C{"capture floor<br/>free >= LAB_MIN_AVAILABLE_RAM_GB"}
+    C -- "below" --> X2["CaptureFailure<br/>close applications"]
+    C -- "ok" --> D{"re-checked after<br/>the PyTorch import"}
+    D -- "below" --> X2
+    D -- "ok" --> E["capture<br/>subprocess exits"]
+    E --> F{"disk again<br/>same floor"}
+    F -- "short" --> X1
+    F -- "ok" --> G{"benchmark cluster spawn<br/>0.25 GB + 72 MB per worker"}
+    G -- "short" --> X3["lower the worker count"]
+    G -- "ok" --> H["benchmark"]
+    H --> I{"generation cluster spawn<br/>same arithmetic, second cluster"}
+    I -- "short" --> X3
+    I -- "ok" --> J{"generation admission<br/>KV charged once, 1.25 margin,<br/>plus decoder headroom"}
+    J -- "short" --> X4["lower the token budget<br/>or the worker count"]
+    J -- "ok" --> K{"generation floor<br/>free >= LAB_MIN_AVAILABLE_RAM_GB<br/>inside the decode subprocess"}
+    K -- "below" --> X5["GenerationError<br/>names the floor"]
+    K -- "ok" --> L["distributed decode"]
+```
 
 Cluster spawn, per cluster:
 

@@ -278,6 +278,21 @@ loses (`D >= B`), no reuse count can rescue it and the dashboard reports `never`
 The benchmark emits `preprocessing_break_even_runs: null` for that case and for
 `P = 0`.
 
+```mermaid
+flowchart TD
+    Start["aggregate totals for the run"] --> C{"D >= B?"}
+    C -- "yes" --> Never["never<br/>no reuse count rescues the online path"]
+    C -- "no" --> P{"P > 0?"}
+    P -- "no" --> Needed["not needed<br/>nothing to amortise"]
+    P -- "yes" --> Calc["R* = floor(P / (B - D)) + 1"]
+    Calc --> Q{"R >= R*?"}
+    Q -- "yes" --> Win["charged total D + P / R stays under B"]
+    Q -- "no" --> Lose["charged total still above B"]
+```
+
+Both `never` and `not needed` are the dashboard's wording for the same emitted
+`null`; which one appears depends on which branch was taken.
+
 Captured centroids and radii live in the worker shards for the life of a session,
 but they are not persisted across runs. There is no cross-run cache to point at, so
 the amortised figure is an accounting mode, not a measured cache hit; the default
