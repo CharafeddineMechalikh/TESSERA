@@ -42,7 +42,7 @@ are capped at `min(LAB_MAX_REQUEST_BYTES, 1 MiB)`; responses carry CSP,
 | Method | Path | Returns |
 |---|---|---|
 | `GET` | `/` | dashboard HTML, sets a session cookie when appropriate |
-| `GET` | `/healthz` | `{"status":"ok","app_version":"11.4.2"}` |
+| `GET` | `/healthz` | `{"status":"ok","app_version":"11.5.0"}` |
 | `GET` | `/readyz` | readiness payload below |
 | `GET` | `/api/public-config` | version, `auth_required`, and the limits the form needs |
 | `POST` | `/api/session` | opens a session, sets the cookie |
@@ -53,7 +53,7 @@ are capped at `min(LAB_MAX_REQUEST_BYTES, 1 MiB)`; responses carry CSP,
 ```json
 {"ready":true,"shutting_down":false,"busy":false,"active_run_id":null,
  "free_disk_gb":118.4,"minimum_free_disk_gb":1.0,
- "available_ram_gb":6.21,"app_version":"11.4.2"}
+ "available_ram_gb":6.21,"app_version":"11.5.0"}
 ```
 
 `ready` is false while shutting down or when free disk is below
@@ -63,7 +63,7 @@ the preflight treats unknown as acceptable rather than blocking.
 `GET /api/public-config` answers:
 
 ```json
-{"app_version":"11.4.2","auth_required":false,
+{"app_version":"11.5.0","auth_required":false,
  "limits":{"min_workers":2,"max_workers":8,"max_context_tokens":1024,
   "default_context_tokens":512,"max_overlap_pct":50.0,"max_prompt_chars":12000,
   "session_ttl_s":900,"max_generation_tokens":4096,"default_max_new_tokens":1000,

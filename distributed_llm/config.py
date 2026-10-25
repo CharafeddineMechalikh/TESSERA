@@ -23,7 +23,7 @@ RUNS_DIR = OUTPUT_DIR / "runs"
 API_KEY = os.getenv("LAB_API_KEY", "")
 SESSION_SECRET = os.getenv("LAB_SESSION_SECRET", "")
 
-APP_VERSION = "11.4.2"
+APP_VERSION = "11.5.0"
 
 
 def _int(name: str, default: int) -> int:

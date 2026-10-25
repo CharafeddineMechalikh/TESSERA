@@ -18,6 +18,7 @@
     stream: null,
     netCount: 0,
     activeTab: "pipeline",
+    activeView: "benchmark",
     startedAt: null,
     selectedUnit: 0,
     elapsedTimer: null,
@@ -159,6 +160,36 @@
     $("networkLog").hidden = name !== "network";
   }
 
+  // ---------------------------------------------------------------- views
+  const VIEWS = ["benchmark", "generation", "theory"];
+
+  function switchView(name) {
+    if (!VIEWS.includes(name)) return;
+    state.activeView = name;
+    VIEWS.forEach((view) => {
+      const panel = $(`tab${view[0].toUpperCase()}${view.slice(1)}`);
+      if (panel) panel.classList.toggle("active", view === name);
+    });
+    document.querySelectorAll(".nav-button[data-view]").forEach((button) => {
+      button.classList.toggle("active", button.dataset.view === name);
+    });
+    try {
+      window.sessionStorage.setItem("tessera.view", name);
+    } catch (error) {
+      // A blocked sessionStorage only costs the remembered view, not the switch itself.
+    }
+  }
+
+  function restoreView() {
+    let saved = null;
+    try {
+      saved = window.sessionStorage.getItem("tessera.view");
+    } catch (error) {
+      saved = null;
+    }
+    switchView(VIEWS.includes(saved) ? saved : "benchmark");
+  }
+
   // ---------------------------------------------------------------- progress
   function setProgress(percent, text) {
     const bounded = Math.max(0, Math.min(100, percent));
@@ -242,6 +273,12 @@
     );
   }
 
+  function emptyChartMessage() {
+    return state.run && state.run.status === "running"
+      ? "The charts fill when the run completes."
+      : "Run a benchmark to populate this chart.";
+  }
+
   function yAxis(svg, plot, yFor, ticks = 4) {
     for (let index = 0; index <= ticks; index += 1) {
       const fraction = index / ticks;
@@ -262,7 +299,7 @@
   function renderLoadChart(positions) {
     const svg = $("chartLoad");
     if (!Array.isArray(positions) || !positions.length) {
-      emptyChart(svg, "Run a benchmark to populate this chart.");
+      emptyChart(svg, emptyChartMessage());
       return;
     }
     const { plot } = chartFrame(svg);
@@ -297,7 +334,7 @@
   function renderBoundsChart(unit) {
     const svg = $("chartBounds");
     if (!unit) {
-      emptyChart(svg, "Run a benchmark to populate this chart.");
+      emptyChart(svg, emptyChartMessage());
       return;
     }
     const bounds = unit.block_bounds || [];
@@ -343,7 +380,7 @@
   function renderCurveChart(unit, epsilon) {
     const svg = $("chartCurve");
     if (!unit || !Array.isArray(unit.retention_curve) || !unit.retention_curve.length) {
-      emptyChart(svg, "Run a benchmark to populate this chart.");
+      emptyChart(svg, emptyChartMessage());
       return;
     }
     const curve = unit.retention_curve;
@@ -844,6 +881,11 @@
     $("cancelBtn").hidden = !running;
     setProgress(running ? 3 : 100, running ? "starting" : `run ${run.status}`);
     setPhase(running ? "starting" : run.status);
+    if (running) {
+      renderLoadChart(null);
+      renderBoundsChart(null);
+      renderCurveChart(null, epsilonOf());
+    }
     openStream(run.run_id);
     if (!running) loadSummary(run.run_id);
     startElapsedTimer();
@@ -1165,6 +1207,16 @@
     };
   }
 
+  function setButtonLabel(id, text) {
+    const button = $(id);
+    const label = button.querySelector(".btn-label");
+    if (label) {
+      label.textContent = text;
+      return;
+    }
+    button.textContent = text;
+  }
+
   async function startRun() {
     hideBanner();
     const payload = currentPayload();
@@ -1173,7 +1225,7 @@
       return;
     }
     $("runBtn").disabled = true;
-    $("runBtn").textContent = "Starting...";
+    setButtonLabel("runBtn", "Starting...");
     try {
       const data = await api("/api/runs", { method: "POST", body: payload });
       if (data && data.run) {
@@ -1193,7 +1245,7 @@
       }
       $("runBtn").disabled = false;
     } finally {
-      $("runBtn").textContent = "Run benchmark";
+      setButtonLabel("runBtn", "Run benchmark");
     }
   }
 
@@ -1373,6 +1425,9 @@
     $("clearLogs").addEventListener("click", clearLogs);
     $("tabPipeline").addEventListener("click", () => switchTab("pipeline"));
     $("tabNetwork").addEventListener("click", () => switchTab("network"));
+    document.querySelectorAll(".nav-button[data-view]").forEach((button) => {
+      button.addEventListener("click", () => switchView(button.dataset.view));
+    });
     $("logoutBtn").addEventListener("click", logout);
     $("loginForm").addEventListener("submit", submitLogin);
     $("unitSelect").addEventListener("change", (event) => {
@@ -1387,6 +1442,7 @@
   }
 
   bind();
+  restoreView();
   updateSliderLabels();
   updateReuseLabel();
   renderLoadChart(null);

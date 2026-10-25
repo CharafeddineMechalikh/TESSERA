@@ -4,160 +4,279 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tessera</title>
-<link rel="stylesheet" href="/static/css/app.css?v=13">
+<link rel="stylesheet" href="/static/css/app.css?v=16">
 </head>
 <body data-auth-required="{{ 'true' if auth_required else 'false' }}"
       data-app-version="{{ app_version }}"
       data-min-workers="{{ min_workers }}"
       data-max-workers="{{ max_workers }}">
 
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-chip" viewBox="0 0 24 24"><path d="M9 3v2m6-2v2M9 19v2m6-2v2M3 9h2m-2 6h2m14-6h2m-2 6h2M7 7h10v10H7z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 19h16M7 16V9m5 7V5m5 11v-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+  <symbol id="i-code" viewBox="0 0 24 24"><path d="m9 7-5 5 5 5m6-10 5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-calc" viewBox="0 0 24 24"><path d="M6 3h12v18H6zM9 7h6M9 11h1m4 0h1M9 15h1m4 0h1" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h10m4 0h2M4 12h4m4 0h8M4 17h8m4 0h4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><circle cx="16" cy="7" r="2" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="10" cy="12" r="2" fill="none" stroke="currentColor" stroke-width="1.7"/><circle cx="14" cy="17" r="2" fill="none" stroke="currentColor" stroke-width="1.7"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 3 5 6v6c0 4 3 7 7 9 4-2 7-5 7-9V6z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="m9 12 2 2 4-4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-terminal" viewBox="0 0 24 24"><path d="m5 8 3 3-3 3m5 1h8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 5v14l12-7z" fill="currentColor"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><path d="M7 7h10v10H7z" fill="currentColor"/></symbol>
+  <symbol id="i-balance" viewBox="0 0 24 24"><path d="M12 4v16M6 8h12M4 8l-2 6h4zm16 0-2 6h4z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+</svg>
+
 <header class="topbar">
   <div class="brand">
-    <span class="brand-mark">T</span>
-    <div>
-      <h1>Tessera</h1>
+    <span class="brand-mark"><svg class="icon"><use href="#i-chip"/></svg></span>
+    <div class="brand-text">
+      <h1>Tessera <span class="version-badge">v{{ app_version }}</span></h1>
       <p>Distributed LLM inference across edge devices</p>
     </div>
   </div>
+
+  <nav class="topnav" aria-label="Views">
+    <button id="viewBenchmark" class="nav-button active" type="button" data-view="benchmark">
+      <svg class="icon"><use href="#i-chart"/></svg><span>Benchmark</span>
+    </button>
+    <button id="viewGeneration" class="nav-button" type="button" data-view="generation">
+      <svg class="icon"><use href="#i-code"/></svg><span>Generation</span>
+    </button>
+    <button id="viewTheory" class="nav-button" type="button" data-view="theory">
+      <svg class="icon"><use href="#i-calc"/></svg><span>Theory</span>
+    </button>
+  </nav>
+
   <div class="topbar-right">
-    <span class="version">v{{ app_version }}</span>
     <span id="serverState" class="pill pill-idle">idle</span>
     <button id="logoutBtn" class="link-button" hidden>sign out</button>
   </div>
 </header>
 
-<div class="layout">
-  <aside class="sidebar">
-    <section class="panel">
-      <h2>Run configuration</h2>
-      <label class="field">
-        <span>Prompt</span>
-        <textarea id="prompt" rows="5" spellcheck="false">Explain the theory of relativity briefly.</textarea>
-        <small><span id="promptCount">0</span> characters, limit <span id="promptLimit">12000</span></small>
-      </label>
+<main class="stage">
 
-      <label class="field">
-        <span>Workers K <output id="workersOut">4</output></span>
-        <input id="workers" type="range" min="{{ min_workers }}" max="{{ max_workers }}" step="1" value="4">
-      </label>
+  <section id="tabBenchmark" class="view-panel active">
+    <div class="bench">
+      <aside class="control-rail">
+        <div class="rail-head">
+          <h2><svg class="icon"><use href="#i-sliders"/></svg> Parameters &amp; Control</h2>
+        </div>
 
-      <label class="field">
-        <span>Context token limit <output id="tokensOut">512</output></span>
-        <input id="maxTokens" type="range" min="64" max="1024" step="32" value="512">
-        <small>Prompts above this limit are rejected, never silently truncated.</small>
-      </label>
+        <div class="rail-body">
+          <label class="field">
+            <span>Prompt</span>
+            <textarea id="prompt" rows="5" spellcheck="false">Explain the theory of relativity briefly.</textarea>
+            <small><span id="promptCount">0</span> characters, limit <span id="promptLimit">12000</span></small>
+          </label>
 
-      <label class="field">
-        <span>Overlap <output id="overlapOut">0%</output></span>
-        <input id="overlap" type="range" min="0" max="50" step="1" value="0">
-        <small>0% uses the single pass incremental selection protocol.
-          <button id="overlapPreset" class="link-button inline-link" type="button">use 15%</button>
-          matches the original dual-ownership prototype.</small>
-      </label>
+          <label class="field">
+            <span>Workers K <output id="workersOut">4</output></span>
+            <input id="workers" type="range" min="{{ min_workers }}" max="{{ max_workers }}" step="1" value="4">
+          </label>
 
-      <label class="field">
-        <span>Partition strategy</span>
-        <select id="strategy">
-          <option value="pseudorandom" selected>fmix32 pseudorandom</option>
-          <option value="contiguous">Contiguous with margins</option>
-        </select>
-      </label>
+          <label class="field">
+            <span>Context token limit <output id="tokensOut">512</output></span>
+            <input id="maxTokens" type="range" min="64" max="1024" step="32" value="512">
+            <small>Prompts above this limit are rejected, never silently truncated.</small>
+          </label>
 
-      <label class="field">
-        <span>Certified tolerance</span>
-        <select id="errorTol">
-          <option value="0.1">1e-1</option>
-          <option value="0.01">1e-2</option>
-          <option value="0.001" selected>1e-3</option>
-          <option value="0.0001">1e-4</option>
-          <option value="0.00001">1e-5</option>
-          <option value="0.000001">1e-6</option>
-        </select>
-      </label>
+          <label class="field">
+            <span>Overlap <output id="overlapOut">0%</output></span>
+            <input id="overlap" type="range" min="0" max="50" step="1" value="0">
+            <small>0% uses the single pass incremental selection protocol.
+              <button id="overlapPreset" class="link-button inline-link" type="button">use 15%</button>
+              matches the original dual-ownership prototype.</small>
+          </label>
 
-      <label class="field">
-        <span>PRNG seed</span>
-        <input id="seed" type="number" min="0" max="2147483647" step="1" value="42">
-      </label>
+          <label class="field">
+            <span>Partition strategy</span>
+            <select id="strategy">
+              <option value="pseudorandom" selected>fmix32 pseudorandom</option>
+              <option value="contiguous">Contiguous with margins</option>
+            </select>
+          </label>
 
-      <label class="check">
-        <input id="generate" type="checkbox" checked>
-        <span>Decode tokens through the distributed attention</span>
-      </label>
+          <label class="field">
+            <span>Certified tolerance</span>
+            <select id="errorTol">
+              <option value="0.1">1e-1</option>
+              <option value="0.01">1e-2</option>
+              <option value="0.001" selected>1e-3</option>
+              <option value="0.0001">1e-4</option>
+              <option value="0.00001">1e-5</option>
+              <option value="0.000001">1e-6</option>
+            </select>
+          </label>
 
-      <label class="field">
-        <span>New tokens</span>
-        <input id="maxNewTokens" type="number" min="1" max="4096" step="1" value="1000">
-      </label>
+          <label class="field">
+            <span>PRNG seed</span>
+            <input id="seed" type="number" min="0" max="2147483647" step="1" value="42">
+          </label>
 
-      <div class="actions">
-        <button id="runBtn" class="primary">Run benchmark</button>
-        <button id="cancelBtn" class="danger" hidden>Cancel run</button>
+          <label class="check">
+            <input id="generate" type="checkbox" checked>
+            <span>Decode tokens through the distributed attention</span>
+          </label>
+
+          <label class="field">
+            <span>New tokens</span>
+            <input id="maxNewTokens" type="number" min="1" max="4096" step="1" value="1000">
+          </label>
+
+          <div class="actions">
+            <button id="runBtn" class="primary" type="button">
+              <svg class="icon"><use href="#i-play"/></svg><span class="btn-label">Run benchmark</span>
+            </button>
+            <button id="cancelBtn" class="danger" type="button" hidden>
+              <svg class="icon"><use href="#i-stop"/></svg><span class="btn-label">Cancel run</span>
+            </button>
+          </div>
+
+          <p class="note">
+            Generation runs a layer-streamed Qwen2 decoder whose KV cache lives on the
+            workers. Every attention query is evaluated by all workers and merged with
+            an exact float64 log-sum-exp, so the text is produced by the distributed
+            attention path. Weights are streamed per layer, so decoding is much slower
+            than a resident model: about 3 to 4 seconds per new token on this machine,
+            so the 1000-token default can run for hours unless the model ends the
+            sequence first or you press Cancel.
+          </p>
+        </div>
+
+        <div class="rail-run">
+          <h3>Active run</h3>
+          <dl class="meta">
+            <dt>Run</dt><dd id="metaRun">none</dd>
+            <dt>Workers</dt><dd id="metaWorkers">--</dd>
+            <dt>Tokens</dt><dd id="metaTokens">--</dd>
+            <dt>Elapsed</dt><dd id="metaElapsed">--</dd>
+            <dt>Phase</dt><dd id="metaPhase">idle</dd>
+          </dl>
+          <div class="progress"><div id="progressBar" class="progress-fill"></div></div>
+          <div class="progress-label"><span id="progressText">no run yet</span><span id="progressPct"></span></div>
+        </div>
+      </aside>
+
+      <div class="analytics">
+        <div class="cards">
+          <article class="card">
+            <div class="card-top">
+              <span class="card-label">Exact merge error</span>
+              <svg class="icon accent-green"><use href="#i-balance"/></svg>
+            </div>
+            <strong id="metricExact" class="card-value accent-green">--</strong>
+            <span id="metricExactSub" class="card-sub">max relative error across units</span>
+          </article>
+
+          <article class="card">
+            <div class="card-top">
+              <span class="card-label">Certified error</span>
+              <svg class="icon accent-amber"><use href="#i-shield"/></svg>
+            </div>
+            <strong id="metricCertified" class="card-value accent-amber">--</strong>
+            <span id="metricCertifiedSub" class="card-sub">epsilon --</span>
+          </article>
+
+          <article class="card">
+            <div class="card-top">
+              <span class="card-label">Retained workers</span>
+              <svg class="icon accent-blue"><use href="#i-chart"/></svg>
+            </div>
+            <strong id="metricRetained" class="card-value accent-blue">--</strong>
+            <span id="metricRetainedSub" class="card-sub">mean retained token fraction</span>
+          </article>
+
+          <article class="card">
+            <div class="card-top">
+              <span class="card-label">Net FLOP savings</span>
+              <svg class="icon accent-violet"><use href="#i-chip"/></svg>
+            </div>
+            <strong id="metricFlops" class="card-value accent-violet">--</strong>
+            <span id="metricFlopsSub" class="card-sub">positive means fewer FLOPs than dense</span>
+          </article>
+        </div>
+
+        <div class="diagnostics">
+          <div class="diag-lead">
+            <span class="diag-icon"><svg class="icon"><use href="#i-shield"/></svg></span>
+            <div>
+              <div class="diag-title-row">
+                <span class="diag-title">Run diagnostics</span>
+                <span class="diag-badge">live</span>
+              </div>
+              <p class="diag-desc">Attention mass, entropy and the measured cost of the run.</p>
+            </div>
+          </div>
+          <dl class="diag-stats">
+            <div><dt>Peak attention mass</dt><dd id="statMass">--</dd></div>
+            <div><dt>Attention entropy</dt><dd id="statEntropy">--</dd></div>
+            <div><dt>Capture</dt><dd id="statCapture">--</dd></div>
+            <div><dt>Benchmark</dt><dd id="statBenchmark">--</dd></div>
+            <div><dt>Worker calls</dt><dd id="statCalls">--</dd></div>
+            <div><dt>Retries</dt><dd id="statRetries">--</dd></div>
+          </dl>
+        </div>
+
+        <div id="banner" class="banner" hidden></div>
+
+        <div class="charts">
+          <article class="panel chart-panel">
+            <div class="panel-head">
+              <h3><svg class="icon accent-blue"><use href="#i-chart"/></svg> Worker token load</h3>
+              <span class="panel-hint">positions per worker</span>
+            </div>
+            <svg id="chartLoad" class="chart" viewBox="0 0 420 240" role="img" aria-label="Worker token load"></svg>
+          </article>
+
+          <article class="panel chart-panel">
+            <div class="panel-head">
+              <h3><svg class="icon accent-green"><use href="#i-balance"/></svg> Block upper bounds</h3>
+              <select id="unitSelect" class="mini-select"></select>
+            </div>
+            <svg id="chartBounds" class="chart" viewBox="0 0 420 240" role="img" aria-label="Block upper bounds"></svg>
+          </article>
+
+          <article class="panel chart-panel">
+            <div class="panel-head">
+              <h3><svg class="icon accent-amber"><use href="#i-shield"/></svg> Certification curve</h3>
+              <span id="curveEps" class="panel-hint">epsilon --</span>
+            </div>
+            <svg id="chartCurve" class="chart" viewBox="0 0 420 240" role="img" aria-label="Certification curve"></svg>
+          </article>
+        </div>
+
+        <article class="panel log-panel">
+          <div class="panel-head">
+            <div class="tabs">
+              <button id="tabPipeline" class="tab active" data-tab="pipeline">Pipeline</button>
+              <button id="tabNetwork" class="tab" data-tab="network">Network <span id="netCount" class="count">0</span></button>
+            </div>
+            <button id="clearLogs" class="link-button">clear</button>
+          </div>
+          <div id="pipelineLog" class="log"></div>
+          <div id="networkLog" class="log" hidden></div>
+        </article>
       </div>
-      <p class="note">
-        Generation runs a layer-streamed Qwen2 decoder whose KV cache lives on the
-        workers. Every attention query is evaluated by all workers and merged with
-        an exact float64 log-sum-exp, so the text is produced by the distributed
-        attention path. Weights are streamed per layer, so decoding is much slower
-        than a resident model: about 8&ndash;15 seconds per new token on this
-        machine, so the 1000-token default can run for hours unless the model ends
-        the sequence first or you press Cancel.
-      </p>
-    </section>
+    </div>
+  </section>
 
-    <section class="panel" id="runMeta">
-      <h2>Active run</h2>
-      <dl class="meta">
-        <dt>Run</dt><dd id="metaRun">none</dd>
-        <dt>Workers</dt><dd id="metaWorkers">--</dd>
-        <dt>Tokens</dt><dd id="metaTokens">--</dd>
-        <dt>Elapsed</dt><dd id="metaElapsed">--</dd>
-        <dt>Phase</dt><dd id="metaPhase">idle</dd>
-      </dl>
-      <div class="progress"><div id="progressBar" class="progress-fill"></div></div>
-      <div class="progress-label"><span id="progressText">no run yet</span><span id="progressPct"></span></div>
-    </section>
-  </aside>
-
-  <main class="content">
-    <div id="banner" class="banner" hidden></div>
-
-    <section class="cards">
-      <article class="card">
-        <span class="card-label">Exact merge error</span>
-        <strong id="metricExact" class="card-value accent-green">--</strong>
-        <span id="metricExactSub" class="card-sub">max relative error across units</span>
+  <section id="tabGeneration" class="view-panel">
+    <div class="view-grid">
+      <article class="panel generation-panel">
+        <div class="panel-head">
+          <h3><svg class="icon accent-violet"><use href="#i-code"/></svg> Distributed generation</h3>
+          <span class="panel-hint">exact causal decode</span>
+        </div>
+        <div id="generationBody" class="generation-body">
+          <p class="muted">Not requested yet.</p>
+        </div>
+        <div class="artifacts">
+          <h3>Artifacts</h3>
+          <ul id="artifactList"><li class="muted">No artifacts yet.</li></ul>
+        </div>
       </article>
-      <article class="card">
-        <span class="card-label">Certified error</span>
-        <strong id="metricCertified" class="card-value accent-amber">--</strong>
-        <span id="metricCertifiedSub" class="card-sub">epsilon --</span>
-      </article>
-      <article class="card">
-        <span class="card-label">Retained workers</span>
-        <strong id="metricRetained" class="card-value accent-blue">--</strong>
-        <span id="metricRetainedSub" class="card-sub">mean retained token fraction</span>
-      </article>
-      <article class="card">
-        <span class="card-label">Net FLOP savings</span>
-        <strong id="metricFlops" class="card-value accent-violet">--</strong>
-        <span id="metricFlopsSub" class="card-sub">positive means fewer FLOPs than dense</span>
-      </article>
-    </section>
 
-    <section class="stats-strip">
-      <div><span>Peak attention mass</span><strong id="statMass">--</strong></div>
-      <div><span>Attention entropy</span><strong id="statEntropy">--</strong></div>
-      <div><span>Capture</span><strong id="statCapture">--</strong></div>
-      <div><span>Benchmark</span><strong id="statBenchmark">--</strong></div>
-      <div><span>Worker calls</span><strong id="statCalls">--</strong></div>
-      <div><span>Retries</span><strong id="statRetries">--</strong></div>
-    </section>
-
-    <section class="accounting">
       <article class="panel accounting-panel">
         <div class="panel-head">
-          <h2>FLOP accounting</h2>
+          <h3><svg class="icon accent-blue"><use href="#i-chip"/></svg> FLOP accounting</h3>
           <label class="accounting-toggle">
             <input id="includePreproc" type="checkbox" checked>
             <span>charge bounds preprocessing</span>
@@ -185,7 +304,7 @@
 
       <article class="panel accounting-panel">
         <div class="panel-head">
-          <h2>Overlap impact</h2>
+          <h3><svg class="icon accent-amber"><use href="#i-shield"/></svg> Overlap impact</h3>
           <span class="panel-hint" id="overlapMode">no dual ownership</span>
         </div>
         <dl class="accounting-grid">
@@ -201,76 +320,89 @@
           correction and compares the result against dense attention.
         </p>
       </article>
-    </section>
 
-    <section class="charts">
-      <article class="panel chart-panel">
+      <article class="panel provenance-panel">
         <div class="panel-head">
-          <h2>Worker token load</h2>
-          <span class="panel-hint">positions per worker</span>
+          <h3><svg class="icon accent-green"><use href="#i-chart"/></svg> What this measures</h3>
         </div>
-        <svg id="chartLoad" class="chart" viewBox="0 0 420 240" role="img" aria-label="Worker token load"></svg>
+        <p id="provenanceText">
+          Q/K/V tensors are captured from the pinned Qwen2.5-Coder-1.5B snapshot by an
+          isolated capture process, then replayed through fresh HTTP worker processes
+          that apply the certified omitted-mass pruning protocol. The dense reference
+          is computed locally by the coordinator and is never sent to workers. When
+          generation is enabled, a second worker cluster holds the KV cache and every
+          attention query is evaluated there before the coordinator produces the next
+          token.
+        </p>
+      </article>
+    </div>
+  </section>
+
+  <section id="tabTheory" class="view-panel">
+    <div class="view-grid">
+      <article class="panel">
+        <div class="panel-head">
+          <h3><svg class="icon accent-blue"><use href="#i-chip"/></svg> Block bound</h3>
+          <span class="panel-hint">Cauchy-Schwarz</span>
+        </div>
+        <pre class="formula">centroid = mean(keys, axis=0)
+radius   = max ||key - centroid||
+bound(head) = (q[head] . centroid + ||q[head]|| * radius) * scale</pre>
+        <p class="accounting-note">
+          Each worker holds a centroid and a radius for every unit, computed once when
+          its shard is uploaded. The bound caps the contribution of a whole block, so
+          a block can be skipped without reading its rows.
+        </p>
       </article>
 
-      <article class="panel chart-panel">
+      <article class="panel">
         <div class="panel-head">
-          <h2>Block upper bounds</h2>
-          <select id="unitSelect" class="mini-select"></select>
+          <h3><svg class="icon accent-amber"><use href="#i-shield"/></svg> Omitted mass certificate</h3>
+          <span class="panel-hint">the pruning guarantee</span>
         </div>
-        <svg id="chartBounds" class="chart" viewBox="0 0 420 240" role="img" aria-label="Block upper bounds"></svg>
+        <pre class="formula">z_pruned  = gamma * sum over pruned unique tokens of exp(upper_bound - max_retained_score)
+omitted   = z_pruned / (z_retained + z_pruned)
+certified = 2 * v_max * omitted</pre>
+        <p class="accounting-note">
+          The pruned mass is bounded rather than estimated, so the reported error is a
+          certificate. The benchmark compares it with the actual error against dense
+          attention, and a run fails if the actual error exceeds the certificate.
+        </p>
       </article>
 
-      <article class="panel chart-panel">
+      <article class="panel">
         <div class="panel-head">
-          <h2>Certification curve</h2>
-          <span id="curveEps" class="panel-hint">epsilon --</span>
+          <h3><svg class="icon accent-green"><use href="#i-balance"/></svg> Exact merge</h3>
+          <span class="panel-hint">float64 log-sum-exp</span>
         </div>
-        <svg id="chartCurve" class="chart" viewBox="0 0 420 240" role="img" aria-label="Certification curve"></svg>
-      </article>
-    </section>
-
-    <section class="lower">
-      <article class="panel log-panel">
-        <div class="panel-head">
-          <div class="tabs">
-            <button id="tabPipeline" class="tab active" data-tab="pipeline">Pipeline</button>
-            <button id="tabNetwork" class="tab" data-tab="network">Network <span id="netCount" class="count">0</span></button>
-          </div>
-          <button id="clearLogs" class="link-button">clear</button>
-        </div>
-        <div id="pipelineLog" class="log"></div>
-        <div id="networkLog" class="log" hidden></div>
+        <pre class="formula">M = max_w m_w
+weight_w = s_w * exp(m_w - M)
+out = sum_w weight_w * o_w / sum_w weight_w</pre>
+        <p class="accounting-note">
+          Workers return partial scores and outputs. The coordinator merges them in
+          float64 with a log-sum-exp, so the distributed result equals the dense
+          result to floating point precision, with or without overlapping ownership.
+        </p>
       </article>
 
-      <article class="panel generation-panel">
+      <article class="panel">
         <div class="panel-head">
-          <h2>Distributed generation</h2>
-          <span class="panel-hint">exact causal decode</span>
+          <h3><svg class="icon accent-violet"><use href="#i-code"/></svg> Protocol</h3>
+          <span class="panel-hint">request and response</span>
         </div>
-        <div id="generationBody" class="generation-body">
-          <p class="muted">Not requested yet.</p>
-        </div>
-        <div class="artifacts">
-          <h3>Artifacts</h3>
-          <ul id="artifactList"><li class="muted">No artifacts yet.</li></ul>
-        </div>
+        <pre class="formula">visible[key, query] = key_position <= query_position
+scores  = einsum(q[query, head, :], keys) * scale, masked to -inf
+lmax    = max over visible keys
+out     = (exp(scores - lmax) @ values) / sum(exp(scores - lmax))</pre>
+        <p class="accounting-note">
+          The full derivation, the FLOP accounting and the break-even rule are in the
+          documentation site under Numerical protocol.
+        </p>
       </article>
-    </section>
+    </div>
+  </section>
 
-    <section class="provenance">
-      <h2>What this measures</h2>
-      <p id="provenanceText">
-        Q/K/V tensors are captured from the pinned Qwen2.5-Coder-1.5B snapshot by an
-        isolated capture process, then replayed through fresh HTTP worker processes
-        that apply the certified omitted-mass pruning protocol. The dense reference
-        is computed locally by the coordinator and is never sent to workers. When
-        generation is enabled, a second worker cluster holds the KV cache and every
-        attention query is evaluated there before the coordinator produces the next
-        token.
-      </p>
-    </section>
-  </main>
-</div>
+</main>
 
 <div id="loginOverlay" class="overlay" hidden>
   <form id="loginForm" class="login-card">
@@ -288,6 +420,6 @@
   </form>
 </div>
 
-<script src="/static/js/visualizer.js?v=17"></script>
+<script src="/static/js/visualizer.js?v=20"></script>
 </body>
 </html>

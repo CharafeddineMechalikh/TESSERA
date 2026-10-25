@@ -25,7 +25,10 @@ workers are ordinary HTTP processes with a per-run token and no shared memory, s
 they can move to separate devices as the transport and orchestration work lands.
 
 The browser dashboard starts a run, streams progress, and shows measured errors,
-retention decisions, FLOP accounting, logs, and downloadable artifacts.
+retention decisions, FLOP accounting, logs, and downloadable artifacts. It is
+split into three views: Benchmark for the run and its metrics, Generation for the
+decoded text and the cost accounting, and Theory for the protocol the run
+implements.
 
 The framework is not a simulator. Every attention number it reports in the
 dashboard and the results below is computed from Q/K/V tensors captured from the
