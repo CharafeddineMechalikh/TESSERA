@@ -194,7 +194,7 @@ capture.npz, request.json, generation.json, events.jsonl
 
 Anything else is 404 `unknown artifact`. Worker logs live under `cluster/workers/`
 and `generation_cluster/workers/` and are deliberately not downloadable; they are
-on disk for post-mortems. See [operations.md](operations.md) for what each file
+on disk for post-mortems. See [06-operations.md](06-operations.md) for what each file
 contains and how to verify the manifest.
 
 ## Error taxonomy

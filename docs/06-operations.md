@@ -126,7 +126,7 @@ flowchart TD
 | 409 on `POST /api/runs` | coordinator | one run at a time; wait, or cancel the active one |
 | `prompt_too_long` | capture | the prompt needs more tokens than `max_tokens`; raise it or shorten the prompt. Silent truncation is never benchmarked |
 | `capture exceeded the 900s timeout` | manager watchdog | another process was competing for CPU; check for a stale worker cluster |
-| `generation exceeded the N s timeout` | manager watchdog | either the decoder wedged or the budget is too small for the requested tokens; the formula is in [configuration.md](configuration.md) |
+| `generation exceeded the N s timeout` | manager watchdog | either the decoder wedged or the budget is too small for the requested tokens; the formula is in [05-configuration.md](05-configuration.md) |
 | `410 session expired` from a worker | worker TTL | the cluster was idle past `LAB_SESSION_TTL_S`; every successful call refreshes the clock, so this means a wedged stage, not a slow decode |
 | `worker received positions it does not own` (403) | generation worker | routing bug or a hand-crafted request; the strided invariant did the job it was designed to do |
 | `append conflicts with stored K/V` (409) | generation worker | a retry delivered different bytes for a position already cached; the run is aborted rather than silently corrupted |

@@ -40,7 +40,7 @@ Neither value is ever logged, echoed into an artifact, or included in an event.
 | Variable | Default | Meaning |
 |---|---|---|
 | `LAB_MIN_WORKERS` | `2` | Smallest cluster the API accepts |
-| `LAB_MAX_WORKERS` | `8` | Largest cluster; sized for this machine's RAM, see [operations.md](operations.md) |
+| `LAB_MAX_WORKERS` | `8` | Largest cluster; sized for this machine's RAM, see [06-operations.md](06-operations.md) |
 | `LAB_DEFAULT_WORKERS` | `4` | Declared default, currently not consumed by any code path |
 | `LAB_WORKER_START_TIMEOUT_S` | `60.0` | How long `cluster.py` waits for ready files plus `/health` |
 | `LAB_WORKER_HEALTH_TIMEOUT_S` | `2.0` | Declared, currently not consumed; readiness probes use inline timeouts |
@@ -143,7 +143,7 @@ charge grows linearly: 2021 positions across 28 layers, 2 KV heads, 128 dims,
 float32, keys and values is 57,344 bytes per position, about 116 MB cluster-wide
 and about 0.13 GB with the transient factor, plus the decoder headroom. The
 worker count does not change that total, because each position lives on exactly
-one worker. See the admission formula in [operations.md](operations.md).
+one worker. See the admission formula in [06-operations.md](06-operations.md).
 
 Disable generation for attention-only probes:
 

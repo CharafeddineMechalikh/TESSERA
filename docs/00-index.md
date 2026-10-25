@@ -4,7 +4,7 @@ Distributed Attention is a framework for running LLM inference across edge
 devices. It starts where the cost is: attention work grows quadratically with
 context length, so attention is partitioned across independent workers, computed
 there, and merged exactly. The remaining layers, container packaging, and
-orchestration are the next stages, tracked in [roadmap.md](roadmap.md).
+orchestration are the next stages, tracked in [08-roadmap.md](08-roadmap.md).
 
 Today the framework captures real Q/K/V from Qwen2.5-Coder-1.5B, benchmarks a
 certified pruning protocol over those tensors, and decodes tokens through a
@@ -14,16 +14,24 @@ measurement from this machine, not an estimate.
 
 ## How to read the set
 
-| Document | Read it when |
+The file names carry the reading order. Start here, then go down the list; each
+document assumes the ones above it.
+
+| Document | Read it for |
 |---|---|
-| [roadmap.md](roadmap.md) | You want the current state, the stage plan, and the open questions |
-| [architecture.md](architecture.md) | You need the process model, the run lifecycle, or where a stage executes |
-| [worker-protocol.md](worker-protocol.md) | You are touching `worker_node.py`, `cluster.py`, or `gen_client.py`, or debugging a 4xx from a worker |
-| [coordinator-api.md](coordinator-api.md) | You are calling the HTTP API, driving the dashboard, or adding a route or SSE event |
-| [configuration.md](configuration.md) | You are changing a limit, an environment variable, or a validator rule |
-| [protocol-math.md](protocol-math.md) | You need the numerical contract: partitioning, bounds, retention, merge, invariants |
-| [operations.md](operations.md) | You are running long decodes, hitting RAM admission, or triaging a failed run |
-| [testing.md](testing.md) | You are adding tests or wondering what CI actually covers |
+| [00-index.md](00-index.md) | what the framework is, current results, glossary, and this reading order |
+| [01-architecture.md](01-architecture.md) | the process model, the run lifecycle, and where each stage executes |
+| [02-protocol-math.md](02-protocol-math.md) | the numerical contract: partitioning, bounds, retention, merge, invariants |
+| [03-worker-protocol.md](03-worker-protocol.md) | every worker endpoint, payload field set, and status code |
+| [04-coordinator-api.md](04-coordinator-api.md) | the HTTP API, auth modes, SSE events, artifacts, error taxonomy |
+| [05-configuration.md](05-configuration.md) | every environment variable, validator rule, and worked example |
+| [06-operations.md](06-operations.md) | measured costs, RAM admission, failure modes, artifact verification |
+| [07-testing.md](07-testing.md) | what each test file protects, the markers, and what CI runs |
+| [08-roadmap.md](08-roadmap.md) | what runs today, what comes next, and the open questions |
+
+Read [01-architecture.md](01-architecture.md) before touching `worker_node.py`,
+`cluster.py`, or `gen_client.py`; read [03-worker-protocol.md](03-worker-protocol.md)
+before debugging a 4xx from a worker.
 
 ## Current results
 

@@ -177,7 +177,7 @@ cannot silently cross-contaminate shards. `gen_client.py` refuses to connect to 
 worker URL that is not loopback HTTP, which keeps a tampered connection blob from
 turning the decoder into an exfiltration client.
 
-The full contract is in [worker-protocol.md](worker-protocol.md).
+The full contract is in [03-worker-protocol.md](03-worker-protocol.md).
 
 ## Module map
 

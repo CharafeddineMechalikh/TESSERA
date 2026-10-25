@@ -7,7 +7,7 @@ and time. This repository already captures Q/K/V from **Qwen2.5-Coder-1.5B**,
 partitions attention across independent worker processes, merges the results
 exactly, and decodes tokens through that same split. The remaining layers,
 container packaging, and multi-node orchestration are the next stages, tracked
-in the [roadmap](docs/roadmap.md).
+in the [roadmap](docs/08-roadmap.md).
 
 The intent is a working framework, not a demo. It is a side project, and the
 current deployment is deliberately one host with loopback workers so every
@@ -45,7 +45,7 @@ model memory to the operating system.
 ## Current results
 
 Two measured runs define the present state. Both come from the machine described
-in [docs/operations.md](docs/operations.md): Windows 11, Python 3.12, CPU only.
+in [docs/06-operations.md](docs/06-operations.md): Windows 11, Python 3.12, CPU only.
 
 Benchmark, 2026-10-24, 243 context tokens, 4 workers, overlap 0,
 `epsilon = 1e-3`:
@@ -103,7 +103,7 @@ reports this result instead of relaxing the certificate or hiding the overhead.
 
 ## Roadmap
 
-Three stages. The checkboxes are the todo list; [docs/roadmap.md](docs/roadmap.md)
+Three stages. The checkboxes are the todo list; [docs/08-roadmap.md](docs/08-roadmap.md)
 carries the design notes and the open questions behind them.
 
 ```mermaid
@@ -142,18 +142,21 @@ flowchart LR
 
 ## Documentation
 
-The reference set lives in [`docs/`](docs/index.md):
+The reference set lives in [`docs/`](docs/00-index.md). The files are numbered in
+reading order, from the process model to the numerical contract to running and
+testing the framework; read them in that order if you are new to the codebase.
 
 | Document | Covers |
 |---|---|
-| [docs/roadmap.md](docs/roadmap.md) | what runs today, what comes next, and the open questions for each stage |
-| [docs/architecture.md](docs/architecture.md) | process model, run lifecycle diagrams, stage placement, isolation boundaries |
-| [docs/worker-protocol.md](docs/worker-protocol.md) | every worker endpoint, NPZ field sets, status codes, idempotency |
-| [docs/coordinator-api.md](docs/coordinator-api.md) | HTTP API, auth modes, SSE event shapes, artifacts, error taxonomy |
-| [docs/configuration.md](docs/configuration.md) | every environment variable, validator rules, worked examples |
-| [docs/protocol-math.md](docs/protocol-math.md) | partitioning, bounds, certificate, merge, decode invariants, FLOP model |
-| [docs/operations.md](docs/operations.md) | measured costs, RAM admission, failure modes, artifact verification |
-| [docs/testing.md](docs/testing.md) | what each test file protects, markers, CI behavior |
+| [docs/00-index.md](docs/00-index.md) | what the framework is, current results, glossary, and the reading order |
+| [docs/01-architecture.md](docs/01-architecture.md) | process model, run lifecycle diagrams, stage placement, isolation boundaries |
+| [docs/02-protocol-math.md](docs/02-protocol-math.md) | partitioning, bounds, certificate, merge, decode invariants, FLOP model |
+| [docs/03-worker-protocol.md](docs/03-worker-protocol.md) | every worker endpoint, NPZ field sets, status codes, idempotency |
+| [docs/04-coordinator-api.md](docs/04-coordinator-api.md) | HTTP API, auth modes, SSE event shapes, artifacts, error taxonomy |
+| [docs/05-configuration.md](docs/05-configuration.md) | every environment variable, validator rules, worked examples |
+| [docs/06-operations.md](docs/06-operations.md) | measured costs, RAM admission, failure modes, artifact verification |
+| [docs/07-testing.md](docs/07-testing.md) | what each test file protects, markers, CI behavior |
+| [docs/08-roadmap.md](docs/08-roadmap.md) | what runs today, what comes next, and the open questions for each stage |
 
 The diagrams are Mermaid, which GitHub renders inline.
 

@@ -308,7 +308,7 @@ and a zero output, which lets the merge ignore it without special cases.
 every call, that the visible counts summed across workers equal
 `query_position + 1`, and that each worker's `owned_keys` matches the strided
 ownership formula. Those two invariants turn a wrong answer into a raised
-exception. See [protocol-math.md](protocol-math.md).
+exception. See [02-protocol-math.md](02-protocol-math.md).
 
 ## POST /v1/clear
 

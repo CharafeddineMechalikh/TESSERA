@@ -120,6 +120,6 @@ and whether quantization parity is required before a stage can claim exactness.
   `Qwen2ForCausalLM` for whole-model output. A stage that cannot match the
   monolithic result is not done.
 - Costs are measured on the reference machine and recorded in
-  [operations.md](operations.md), including the negative results.
+  [06-operations.md](06-operations.md), including the negative results.
 - Every new failure mode gets a typed error, a status code where it crosses
   HTTP, and a test that produces it.
