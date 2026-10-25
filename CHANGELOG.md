@@ -21,6 +21,8 @@ formulas reachable without scrolling through the benchmark panels.
   are the system stacks, so the dashboard renders the same offline.
 - The run button keeps its icon while the label changes, so starting a run no
   longer strips the control's symbol.
+- The charts state that they fill when the run completes while a run is live,
+  instead of claiming no benchmark has been run.
 - Version 11.5.0.
 
 ## 11.4.2

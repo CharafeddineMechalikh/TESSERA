@@ -273,6 +273,12 @@
     );
   }
 
+  function emptyChartMessage() {
+    return state.run && state.run.status === "running"
+      ? "The charts fill when the run completes."
+      : "Run a benchmark to populate this chart.";
+  }
+
   function yAxis(svg, plot, yFor, ticks = 4) {
     for (let index = 0; index <= ticks; index += 1) {
       const fraction = index / ticks;
@@ -293,7 +299,7 @@
   function renderLoadChart(positions) {
     const svg = $("chartLoad");
     if (!Array.isArray(positions) || !positions.length) {
-      emptyChart(svg, "Run a benchmark to populate this chart.");
+      emptyChart(svg, emptyChartMessage());
       return;
     }
     const { plot } = chartFrame(svg);
@@ -328,7 +334,7 @@
   function renderBoundsChart(unit) {
     const svg = $("chartBounds");
     if (!unit) {
-      emptyChart(svg, "Run a benchmark to populate this chart.");
+      emptyChart(svg, emptyChartMessage());
       return;
     }
     const bounds = unit.block_bounds || [];
@@ -374,7 +380,7 @@
   function renderCurveChart(unit, epsilon) {
     const svg = $("chartCurve");
     if (!unit || !Array.isArray(unit.retention_curve) || !unit.retention_curve.length) {
-      emptyChart(svg, "Run a benchmark to populate this chart.");
+      emptyChart(svg, emptyChartMessage());
       return;
     }
     const curve = unit.retention_curve;
@@ -875,6 +881,11 @@
     $("cancelBtn").hidden = !running;
     setProgress(running ? 3 : 100, running ? "starting" : `run ${run.status}`);
     setPhase(running ? "starting" : run.status);
+    if (running) {
+      renderLoadChart(null);
+      renderBoundsChart(null);
+      renderCurveChart(null, epsilonOf());
+    }
     openStream(run.run_id);
     if (!running) loadSummary(run.run_id);
     startElapsedTimer();
