@@ -7,6 +7,7 @@ and emits one JSON event per line on stdout for a supervising process.
 from __future__ import annotations
 
 import argparse
+import faulthandler
 import json
 import os
 import platform
@@ -36,6 +37,7 @@ def _write_json_atomic(path: Path, payload: dict) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    faulthandler.enable()
     parser = argparse.ArgumentParser(description="Run the distributed attention benchmark")
     parser.add_argument("--capture", required=True)
     parser.add_argument("--meta", required=True)

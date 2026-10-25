@@ -1,13 +1,13 @@
 # Tests and CI
 
 ```bash
-python -m pytest                     # everything, 87 tests collected here
+python -m pytest                     # everything, 93 tests collected here
 python -m pytest -m "not integration" -q   # skip cluster-spawning tests
 python -m pytest -m "not real_model" -q    # skip the pinned-snapshot tests
 python -m pytest tests/test_protocol.py -q
 ```
 
-87 tests collect on this machine: 73 with no marker, 3 marked `real_model`, 12
+93 tests collect on this machine: 76 with no marker, 3 marked `real_model`, 15
 marked `integration` (one test carries both markers, so the marked sets overlap).
 `pytest.ini` sets `testpaths = tests`, declares both markers, and ignores
 `DeprecationWarning`.
@@ -22,10 +22,11 @@ marked `integration` (one test carries both markers, so the marked sets overlap)
 | `test_config_limits.py` | 7 | the validator rules in [05-configuration.md](05-configuration.md), including that the capture context limit is untouched by the generation defaults |
 | `test_generation_artifact.py` | 5 | manager-side validation of `generation.json`, parametrized rejections, missing or malformed artifact, and the `not_run` versus `failed` distinction in failure summaries |
 | `test_benchmark.py` | 3 | full orchestration on a synthetic capture: exact at strict tolerance, single-worker selection at loose tolerance, and overlap re-query exactness at full retention; every run also checks the preprocessing and overlap terms against the partition, the charged total, the break-even rule, and that a 15 percent overlap run's full-ownership merge matches dense attention below `1e-10` |
+| `test_failure_reporting.py` | 4 | Windows NTSTATUS and POSIX signal exits are rendered readably, and ordinary exits add no suffix |
 | `test_needle.py` | 9 | the planted-needle generator's scores and dense mass, scenario validation, capture round trip, a real-cluster run that prunes 1 of 2 workers on the plant, the needle-free control retaining both, sweep matrix expansion and the run cap, and an end-to-end sweep that keeps the control unpruned and selects the planted run |
 | `test_cluster.py` | 2 | real process lifecycle: spawn workers, upload shards, query, merge, tear down; plus generation admission charging the strided KV total once |
 | `test_capture_equivalence.py` | 2 | the capture path reproduces Hugging Face `Qwen2Attention` and `Qwen2DecoderLayer` on a tiny random Qwen2 built in the test |
-| `test_generation_equivalence.py` | 3 | distributed greedy decoding matches `Qwen2ForCausalLM` exactly at 2 and 3 workers, the runner emits real distributed tokens, and a capture token mismatch is rejected |
+| `test_generation_equivalence.py` | 5 | distributed greedy decoding matches `Qwen2ForCausalLM` exactly at 2 and 3 workers, a 12-token decode stays exact, the runner emits real distributed tokens, the decoder keeps one weights mapping across prefill and decode and releases it on `close()`, and a capture token mismatch is rejected |
 | `test_real_model.py` | 2 | layer 0 of the pinned snapshot matches Hugging Face, and a full capture has the right shapes and stays finite |
 | `test_real_generation.py` | 1 | the pinned model produces tokens through a real worker cluster end to end |
 

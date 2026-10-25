@@ -16,6 +16,7 @@ from distributed_llm.config import Limits
 from distributed_llm.decoder import (
     DistributedAttentionBackend,
     GenerationError,
+    LocalAttentionBackend,
     StreamingQwen2Decoder,
 )
 from distributed_llm.generation_runner import generate
@@ -115,22 +116,25 @@ def test_distributed_decoder_matches_hugging_face(tiny_generation_model, tmp_pat
     try:
         attention = DistributedAttentionBackend(client, geometry, TINY_LIMITS)
         decoder = StreamingQwen2Decoder(str(root), geometry, attention, TINY_LIMITS)
-        attention.reset(len(prompt_tokens) + max_new)
+        try:
+            attention.reset(len(prompt_tokens) + max_new)
 
-        hidden = decoder.prefill(prompt_tokens)
-        produced = []
-        margins = []
-        for step in range(max_new):
-            normed = decoder.final_norm(hidden[-1].reshape(1, -1))
-            logits = decoder.logits(normed[0])
-            produced.append(logits["token"])
-            margins.append(logits["margin"])
-            if step < max_new - 1:
-                hidden = decoder.decode_step(
-                    logits["token"], len(prompt_tokens) + step
-                )
-            assert np.isfinite(logits["top1_logit"])
-        summary = attention.summary()
+            hidden = decoder.prefill(prompt_tokens)
+            produced = []
+            margins = []
+            for step in range(max_new):
+                normed = decoder.final_norm(hidden[-1].reshape(1, -1))
+                logits = decoder.logits(normed[0])
+                produced.append(logits["token"])
+                margins.append(logits["margin"])
+                if step < max_new - 1:
+                    hidden = decoder.decode_step(
+                        logits["token"], len(prompt_tokens) + step
+                    )
+                assert np.isfinite(logits["top1_logit"])
+            summary = attention.summary()
+        finally:
+            decoder.close()
     finally:
         client.close()
         cluster.shutdown()
@@ -203,6 +207,65 @@ def test_generation_runner_produces_distributed_tokens(tiny_generation_model, tm
     assert result["output"]["token_count"] == len(expected)
     assert result["timings"]["prefill_s"] > 0.0
     assert result["memory"]["process_rss_mb"] > 0.0
+
+
+def test_long_decode_matches_hugging_face(tiny_generation_model, tmp_path):
+    """A decode long enough to expose repeated weight reads, not just two steps."""
+    path, model, _ = tiny_generation_model
+    prompt_tokens = [3, 4, 5, 6, 7, 8, 3, 4, 9, 10]
+    max_new = 12
+
+    geometry, root = load_model_metadata(model_path=str(path))
+    cluster = WorkerCluster(2, tmp_path / "long-decode", limits=TINY_LIMITS)
+    _start_cluster(cluster)
+    client = GenerationClient(cluster.connection_info(), timeout_s=60.0)
+    try:
+        attention = DistributedAttentionBackend(client, geometry, TINY_LIMITS)
+        decoder = StreamingQwen2Decoder(str(root), geometry, attention, TINY_LIMITS)
+        try:
+            attention.reset(len(prompt_tokens) + max_new)
+            hidden = decoder.prefill(prompt_tokens)
+            produced = []
+            for step in range(max_new):
+                normed = decoder.final_norm(hidden[-1].reshape(1, -1))
+                token = decoder.logits(normed[0])["token"]
+                produced.append(token)
+                if step < max_new - 1:
+                    hidden = decoder.decode_step(token, len(prompt_tokens) + step)
+            assert decoder.timings["layers_forwarded"] == (
+                geometry.num_layers * (1 + max_new - 1)
+            )
+            assert decoder.timings["weight_load_s"] > 0.0
+        finally:
+            decoder.close()
+    finally:
+        client.close()
+        cluster.shutdown()
+
+    expected = _hf_greedy(model, prompt_tokens, max_new, eos_token_id=None)
+    assert produced == expected, f"greedy tokens diverged: {produced} vs {expected}"
+
+
+def test_decoder_holds_one_weights_mapping(tiny_generation_model):
+    path, _, _ = tiny_generation_model
+    geometry, root = load_model_metadata(model_path=str(path))
+    attention = LocalAttentionBackend(geometry)
+    decoder = StreamingQwen2Decoder(str(root), geometry, attention, TINY_LIMITS)
+    try:
+        mapping = decoder._handle
+        assert mapping is not None
+        attention.reset(16)
+        hidden = decoder.prefill([3, 4, 5])
+        for step in range(4):
+            normed = decoder.final_norm(hidden[-1].reshape(1, -1))
+            token = decoder.logits(normed[0])["token"]
+            hidden = decoder.decode_step(token, 3 + step)
+        assert decoder._handle is mapping
+    finally:
+        decoder.close()
+    assert decoder._handle is None
+    with pytest.raises(GenerationError, match="closed"):
+        decoder.embed_tokens([3])
 
 
 def test_generation_runner_rejects_capture_token_mismatch(tiny_generation_model):

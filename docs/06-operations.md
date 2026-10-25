@@ -54,11 +54,14 @@ requested.
 | Output | 4821 characters |
 
 The dashboard warns 8 to 15 seconds per token; 7.93 s/token is the fast end, at
-the low worker count. Decoding is dominated by reloading all 28 layers from
-`model.safetensors` for every token, which is the deliberate price for keeping the
-decoder inside this machine's RAM. More workers do not make it faster on one
-machine; they add HTTP fan-out. Plan budgets from the token count, not from the
-worker count.
+the low worker count. That measurement predates 11.4.2, which stopped reopening
+the weights mapping for every layer of every token, so treat it as an upper
+bound. A 20-token decode on the same host at 3 workers after the change measured
+3.58 s/token and 10.55 s prefill. Its decoder peak RSS was 3299 MB, most of it
+the mapped bf16 weights file: those pages are file-backed and reclaimable, so
+the figure overstates the pressure on RAM. More workers do not make it faster on
+one machine; they add HTTP fan-out. Plan budgets from the token count, not from
+the worker count.
 
 Practical consequence: the 1000-token default can run for hours. For a quick check,
 set the field to 20 or 50, or press Cancel; the model will usually not stop on its
@@ -175,6 +178,33 @@ Useful inspection order after a bad run:
 
 Worker logs are on disk but are not downloadable through the API; the artifact
 endpoint serves a fixed whitelist only.
+
+### Native exits
+
+A stage that dies in native code reports a code instead of an exception. On
+Windows the manager renders it in hex with a name where one is known:
+
+```
+generation exited with code 3221225477 (0xC0000005: access violation)
+```
+
+`0xC0000005` is an access violation, `0xC00000FD` a stack overflow,
+`0xC0000374` heap corruption, and `0xC0000409` a stack buffer overrun. The three
+runners and the web process call `faulthandler.enable()` at startup. Capture and
+generation run as subprocesses, so their stacks land in `capture.stderr.log` and
+`generation.stderr.log`; the benchmark runs inside the server, so its stack goes
+to the server's own stderr. An empty stage stderr log before 11.4.1 means the run
+predates the handler; reproduce it rather than reading the old log.
+
+These faults can be intermittent. One such crash was captured with the handler:
+after roughly 650 s of decoding under tight memory, the faulting frame was
+`torch/storage.py` inside `load_layer_weights`, where the decoder opened a fresh
+mapping of the multi-gigabyte weights file for every layer of every token (28
+map/unmap cycles per token). Since 11.4.2 the decoder holds one mapping for its
+whole lifetime and closes it explicitly, so a decode no longer remaps the file.
+When a native exit recurs, the stderr stack is the first artifact to read. Keep
+the worker count low on machines below 8 GB and check `readyz` before a long
+decode.
 
 ## Reproducing a run by hand
 

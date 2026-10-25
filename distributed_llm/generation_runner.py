@@ -8,6 +8,7 @@ and enforces the overall timeout and cancellation.
 from __future__ import annotations
 
 import argparse
+import faulthandler
 import hashlib
 import json
 import os
@@ -135,6 +136,7 @@ def generate(
         if progress:
             progress(event)
 
+    decoder = None
     try:
         attention = DistributedAttentionBackend(client, geometry, limits)
         decoder = StreamingQwen2Decoder(
@@ -208,6 +210,8 @@ def generate(
         attention_summary = attention.summary()
         available_end = available_ram_gb()
     finally:
+        if decoder is not None:
+            decoder.close()
         client.close()
 
     total_s = time.perf_counter() - started_wall
@@ -283,6 +287,9 @@ def _failure(exc: Exception, started: float) -> dict:
 
 
 def main(argv=None) -> int:
+    # A native fault inside torch or a memory map otherwise leaves the manager
+    # with a bare exit code and an empty stderr log.
+    faulthandler.enable()
     parser = argparse.ArgumentParser(description="distributed generation runner")
     parser.add_argument("--prompt-file", required=True)
     parser.add_argument("--out", required=True)

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import faulthandler
 import json
 import os
 import sys
@@ -234,6 +235,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Optional[List[str]] = None) -> int:
+    faulthandler.enable()
     args = build_parser().parse_args(argv)
     return run(args)
 

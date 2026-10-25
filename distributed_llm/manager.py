@@ -259,6 +259,25 @@ def _write_json_atomic(path: Path, payload: dict) -> None:
     os.replace(temporary, path)
 
 
+NTSTATUS_REASONS = {
+    0xC0000005: "access violation",
+    0xC00000FD: "stack overflow",
+    0xC0000135: "required DLL not found",
+    0xC0000374: "heap corruption",
+    0xC0000409: "stack buffer overrun",
+}
+
+
+def describe_exit_code(code: int) -> str:
+    """Make an abnormal child exit readable in the run's error message."""
+    if code < 0:
+        return f" (signal {-code})"
+    if code >= 0x80000000:
+        reason = NTSTATUS_REASONS.get(code)
+        return f" (0x{code:08X}{': ' + reason if reason else ''})"
+    return ""
+
+
 def _hash_file(path: Path) -> Tuple[str, int]:
     digest = hashlib.sha256()
     size = 0
@@ -813,6 +832,7 @@ class RunManager:
             detail = _tail(stderr_path)
             raise CaptureFailure(
                 f"{stage_label} exited with code {process.returncode}"
+                f"{describe_exit_code(process.returncode)}"
                 + (f": {detail}" if detail else "")
             )
         if final is None:

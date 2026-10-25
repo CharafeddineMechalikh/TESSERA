@@ -285,8 +285,10 @@ active at a time.
   594 MB resident during capture.
 - Distributed generation needs the decoder's peak resident memory
   (`LAB_GENERATION_DECODER_HEADROOM_GB`, 0.7 GB by default) plus the KV cache.
-  The measured decoder peak on this machine was about 0.9 GB with a short prompt;
-  each worker holds only its strided share of the KV cache.
+  The decoder keeps the bf16 weights file mapped, so its reported peak RSS grows
+  toward the file size; those pages are file-backed and reclaimable, and the
+  admission check treats them as such. Each worker holds only its strided share
+  of the KV cache.
 
 ## Install and run
 
@@ -323,8 +325,10 @@ tolerance, safety factor, distributed generation toggle, and the number of new
 tokens. Context tokens for the probe are capped at `LAB_MAX_CONTEXT_TOKENS`
 (1024 by default). A prompt that needs more tokens than the selected limit fails
 with `prompt_too_long` instead of being truncated. Generation is greedy and
-layer-streamed, so expect roughly 10 to 15 seconds per new token on this
-machine, plus prefill time proportional to the prompt.
+layer-streamed, so expect a few seconds per new token on this machine once the
+weights file is in the page cache, with prefill time proportional to the prompt.
+The dashboard budget of 15 seconds per token remains the conservative planning
+figure.
 
 ## Authentication and security
 
@@ -516,8 +520,10 @@ real-model tests skip there.
   retention, without sampling or pruning. The certified pruning path is measured
   separately in the benchmark stage.
 - Layer streaming keeps the decoder inside this machine's RAM at the cost of
-  speed. Each new token reloads all 28 layers from disk, so generation is much
-  slower than a resident-weight runtime. The artifacts report the measured cost.
+  speed. Each new token materialises all 28 layers again, so generation is much
+  slower than a resident-weight runtime. The weights file stays mapped between
+  tokens, so most layer reads hit the page cache; the artifacts report the
+  measured cost.
 - Certified pruning is sound but too loose to help at `head_dim = 128` with
   dense attention. The framework shows the measurement rather than claiming
   savings.

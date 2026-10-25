@@ -6,6 +6,7 @@ workers are spawned per run, and the dashboard only sees artifacts and events.
 from __future__ import annotations
 
 import asyncio
+import faulthandler
 import json
 import time
 from contextlib import asynccontextmanager
@@ -57,6 +58,8 @@ API_BODY_LIMIT = min(LIMITS.max_request_bytes, 1024 * 1024)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # The benchmark runs in this process, so a native fault must leave a stack.
+    faulthandler.enable()
     app.state.manager = RunManager()
     try:
         yield

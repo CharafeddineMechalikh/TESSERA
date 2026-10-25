@@ -6,16 +6,19 @@ to the worker that owns its token position, and every attention query is sent to
 all workers. The coordinator merges worker statistics with a stable float64
 log-sum-exp, so the result includes every visible position exactly.
 
-Weights are streamed one layer at a time because the fp32 model does not fit in
-this machine's RAM. Generation is therefore slower than a resident-weight
-runtime, and the artifacts report the measured cost rather than implying a
-speedup.
+Weights are streamed one layer at a time: only the current layer and the MLP
+activations are materialised in fp32, because the fp32 model does not fit in
+this machine's RAM. The bf16 weights file stays mapped for the decoder lifetime,
+so the process RSS reports it, but those pages are file-backed and reclaimable
+rather than anonymous memory. Generation is therefore slower than a
+resident-weight runtime, and the artifacts report the measured cost rather than
+implying a speedup.
 """
 from __future__ import annotations
 
 import math
 import time
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
@@ -300,11 +303,21 @@ class StreamingQwen2Decoder:
             "logits_s": 0.0,
             "layers_forwarded": 0,
         }
-        with safe_open(str(self.weights_path), framework="pt", device="cpu") as handle:
-            self._available = set(handle.keys())
+        # One mapping for the whole decoder lifetime. Opening a fresh handle per
+        # layer unmapped and remapped the multi-gigabyte weights file hundreds of
+        # times per decode, which faulted natively under memory pressure.
+        self._stack = ExitStack()
+        self._handle = None
+        try:
+            self._handle = self._stack.enter_context(
+                safe_open(str(self.weights_path), framework="pt", device="cpu")
+            )
+            self._available = set(self._handle.keys())
             if "model.norm.weight" not in self._available:
                 raise GenerationError("model.norm.weight is missing")
-            self.norm_weight = handle.get_tensor("model.norm.weight").to(self.torch.float32)
+            self.norm_weight = self._handle.get_tensor("model.norm.weight").to(
+                self.torch.float32
+            )
             self.lm_head_key = (
                 "lm_head.weight"
                 if "lm_head.weight" in self._available
@@ -312,17 +325,33 @@ class StreamingQwen2Decoder:
             )
             if self.lm_head_key not in self._available:
                 raise GenerationError("no LM head or tied embedding matrix found")
-            shape = handle.get_slice(self.lm_head_key).get_shape()
+            shape = self._handle.get_slice(self.lm_head_key).get_shape()
             if int(shape[1]) != geometry.hidden_size:
                 raise GenerationError("LM head hidden dimension does not match the model")
             self.vocab_size = int(shape[0])
             if self.vocab_size < geometry.vocab_size:
                 raise GenerationError("LM head is smaller than the configured vocabulary")
+        except BaseException:
+            self.close()
+            raise
 
     @contextmanager
     def _weights(self):
-        with safe_open(str(self.weights_path), framework="pt", device="cpu") as handle:
-            yield handle
+        if self._handle is None:
+            raise GenerationError("decoder is closed")
+        yield self._handle
+
+    def close(self) -> None:
+        handle, self._handle = self._handle, None
+        self._stack.close()
+        del handle
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc_info):
+        self.close()
+        return False
 
     def embed_tokens(self, tokens: Sequence[int]) -> object:
         started = time.perf_counter()

@@ -24,7 +24,7 @@ documented.
 | Run isolation | fresh ports, session ids, bearer tokens and worker processes per run |
 | Artifacts | request, capture, benchmark, cluster, generation, events, SHA-256 manifest |
 | API and dashboard | loopback-only FastAPI, SSE with replay, two auth modes, artifact whitelist |
-| Tests | 87 collected, oracles against dense attention and `Qwen2ForCausalLM`, plus a planted-needle diagnostic |
+| Tests | 93 collected, oracles against dense attention and `Qwen2ForCausalLM`, plus a planted-needle diagnostic |
 
 Measured on the reference machine (Windows 11, Python 3.12, CPU only):
 

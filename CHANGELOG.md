@@ -3,6 +3,37 @@
 All functional changes are recorded here. The framework version is `APP_VERSION`
 in `distributed_llm/config.py`.
 
+## 11.4.2
+
+Long decodes no longer remap the weights file for every layer, which was the
+source of the native access violation seen in the dashboard.
+
+- `StreamingQwen2Decoder` opens one `safetensors` mapping at construction and
+  keeps it for the whole decode instead of opening and closing the multi-gigabyte
+  file once per layer per token (28 map/unmap cycles per token on the pinned
+  model). `close()` releases it, and `generate` closes the decoder on every exit
+  path.
+- Using a decoder after `close()` raises `GenerationError` instead of reading a
+  released mapping.
+- Tests decode 12 tokens through the real distributed path against
+  `Qwen2ForCausalLM`, and assert that the mapping handle survives prefill,
+  sampling, and decoding unchanged and is released by `close()`.
+- Version 11.4.2.
+
+## 11.4.1
+
+A runner subprocess that dies in native code now explains itself instead of
+leaving a bare exit code and an empty stderr log.
+
+- The capture, benchmark, and generation runners enable `faulthandler` at
+  startup, so an access violation or stack overflow writes the Python stack of
+  the faulting thread into the stage's stderr log.
+- Stage failures render Windows NTSTATUS codes in hex, naming the common ones,
+  for example `generation exited with code 3221225477 (0xC0000005: access
+  violation)`, and POSIX signals as `(signal N)`.
+- Tests cover the exit-code formatting.
+- Version 11.4.1.
+
 ## 11.4.0
 
 Added a labeled planted-needle diagnostic and a sweep over pruning combinations,
