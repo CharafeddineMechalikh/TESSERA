@@ -7,7 +7,7 @@ import socket
 import numpy as np
 import pytest
 
-from distributed_llm.cluster import WorkerCluster
+from distributed_llm.cluster import ClusterError, WorkerCluster
 from distributed_llm.protocol import merge_stats_batch, reference_attention
 
 pytestmark = pytest.mark.integration
@@ -85,7 +85,7 @@ def test_cluster_lifecycle_and_distributed_merge(tmp_path):
         assert not _port_open(port)
 
 
-def test_generation_admission_charges_the_strided_kv_total_once(tmp_path):
+def test_generation_admission_charges_the_strided_kv_total_once(tmp_path, monkeypatch):
     # Ownership is strided, so the whole cluster holds one copy of every position.
     # Charging num_workers * kv_total refused runs that actually fit.
     from distributed_llm.cluster import KV_GROWTH_FACTOR
@@ -93,6 +93,12 @@ def test_generation_admission_charges_the_strided_kv_total_once(tmp_path):
     max_positions = 1000
     layers, kv_heads, head_dim = 28, 2, 128
     expected_kv_mb = max_positions * layers * kv_heads * head_dim * 4 * 2 / 1e6
+    kv_gb = expected_kv_mb * 1e6 * KV_GROWTH_FACTOR / 1024.0**3
+    needed_gb = 0.7 + kv_gb
+
+    # The host's free RAM is an input to the check, not the behaviour under
+    # test, and this machine frequently sits below the 0.77 GB it asks for.
+    monkeypatch.setattr("distributed_llm.cluster.available_ram_gb", lambda: 8.0)
 
     cluster = WorkerCluster(num_workers=2, run_dir=tmp_path)
     cluster.start()
@@ -104,12 +110,25 @@ def test_generation_admission_charges_the_strided_kv_total_once(tmp_path):
             head_dim=head_dim,
             process_headroom_gb=0.7,
         )
+        assert admission["free_ram_gb"] == pytest.approx(8.0, abs=1e-3)
         assert admission["kv_total_mb"] == pytest.approx(expected_kv_mb, rel=1e-6)
         assert admission["kv_bytes_per_worker"] == pytest.approx(
             expected_kv_mb * 1e6 / 2, rel=1e-6
         )
-        assert admission["needed_ram_gb"] == pytest.approx(
-            0.7 + expected_kv_mb * 1e6 * KV_GROWTH_FACTOR / 1024.0**3, rel=1e-3
-        )
+        assert admission["needed_ram_gb"] == pytest.approx(needed_gb, rel=1e-3)
+
+        short = round(needed_gb - 0.01, 2)
+        monkeypatch.setattr("distributed_llm.cluster.available_ram_gb", lambda: short)
+        with pytest.raises(ClusterError) as excinfo:
+            cluster.preflight_generation(
+                max_positions=max_positions,
+                num_layers=layers,
+                num_kv_heads=kv_heads,
+                head_dim=head_dim,
+                process_headroom_gb=0.7,
+            )
+        message = str(excinfo.value)
+        assert f"KV {kv_gb:.2f} GB across 2 workers, decoder 0.70 GB" in message
+        assert f"only {short:.2f} GB is available" in message
     finally:
         cluster.shutdown()
