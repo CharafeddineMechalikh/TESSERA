@@ -88,7 +88,7 @@ capture cap.
 
 The watchdog budget is
 
-```
+```text
 LAB_GENERATION_TIMEOUT_S + max_new_tokens * LAB_GENERATION_STEP_TIMEOUT_S
 ```
 

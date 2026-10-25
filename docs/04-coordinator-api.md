@@ -188,7 +188,7 @@ running, and the same event object is what the CLI prints.
 `GET /api/runs/{id}/artifacts/{name}` serves only these names, checks the file
 resolves inside the run directory, and returns it as an attachment:
 
-```
+```text
 summary.json, manifest.json, benchmark.json, cluster.json, capture.json,
 capture.npz, request.json, generation.json, events.jsonl
 ```

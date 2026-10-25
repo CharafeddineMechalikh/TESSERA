@@ -45,7 +45,7 @@ collapsing them would silently change the denominator.
 For each unit `(layer, kv_head)` and each worker, the shard stores a centroid and
 a radius at upload time:
 
-```
+```text
 centroid = mean(keys, axis=0)
 radius   = max ||key - centroid||
 bound(head) = (q[head] . centroid + ||q[head]|| * radius) * scale
@@ -85,7 +85,7 @@ worker id, so the order is deterministic) and walks `m = 1..K`:
 2. Merge into a candidate output.
 3. Compute, per head, the omitted mass over positions with zero retained copies:
 
-```
+```text
 z_pruned  = gamma * sum over pruned unique tokens of exp(upper_bound - max_retained_score)
 omitted   = z_pruned / (z_retained + z_pruned)
 certified = 2 * v_max * omitted
@@ -116,7 +116,7 @@ subset, where each position appears exactly once by construction.
 For the selected set, the coordinator compares the merged output against the dense
 reference computed on the coordinator from the same captured arrays:
 
-```
+```text
 actual   = || dist_out - full_out ||
 allowed  = certified + 1e-8 * (1 + || full_out ||)
 ```
@@ -143,7 +143,7 @@ coordinator asks every worker for every assigned copy, merges with
 `retained_multiplicities` over the full worker set, and compares the result with
 dense attention.
 
-```
+```text
 retained     = all workers
 multiplicity = count of copies per position over the retained set
 error        = || merged(overlap) - full_out || / max(|| full_out ||, 1e-30)
@@ -167,7 +167,7 @@ defensible.
 The merge is a two-level stable log-sum-exp. With per-worker maxima `m_w`,
 denominators `s_w`, and locally normalised outputs `o_w`:
 
-```
+```text
 M = max_w m_w
 weight_w = s_w * exp(m_w - M)
 out = sum_w weight_w * o_w / sum_w weight_w
@@ -187,7 +187,7 @@ The decode path replaces hash-based selection with strided ownership: position `
 lives on worker `p % K`, exactly once, per unit. The worker kernel
 `causal_local_stats_batch` masks by position rather than by index:
 
-```
+```text
 visible[key, query] = key_position <= query_position
 scores  = einsum(q[query, head, :], keys) * scale, masked to -inf
 lmax    = max over visible keys
@@ -261,7 +261,7 @@ Three figures are reported, and the dashboard can show any of them:
 `net_flop_savings_with_preprocessing_pct` is the charged figure. The break-even
 reuse count is
 
-```
+```text
 B = baseline_flops
 D = distributed_flops
 P = preprocessing_flops

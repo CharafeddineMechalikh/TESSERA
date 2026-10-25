@@ -77,7 +77,7 @@ Two separate checks, both using `psutil` and both treating a failed probe
 
 Cluster spawn, per cluster:
 
-```
+```text
 needed = SPAWN_HEADROOM_GB + workers * ESTIMATED_WORKER_RSS_MB
        = 0.25 GB + 72 MB per worker
 ```
@@ -85,7 +85,7 @@ needed = SPAWN_HEADROOM_GB + workers * ESTIMATED_WORKER_RSS_MB
 Generation admission, after the workers are already up, so the free figure already
 excludes them:
 
-```
+```text
 kv_bytes  = positions * layers * kv_heads * head_dim * 4 * 2
 needed    = kv_bytes * 1.25 / 1024^3 + LAB_GENERATION_DECODER_HEADROOM_GB
 ```
@@ -98,13 +98,13 @@ roughly 0.14 GB of KV growth plus 0.7 GB of decoder headroom.
 Rejections name the exact shortfall (the figures below illustrate the message
 shape, not a specific run):
 
-```
+```text
 distributed generation needs about 1.92 GB of free RAM (KV 1.22 GB across 4
 workers, decoder 0.70 GB), only 0.83 GB is available. Lower the generation
 token budget or the worker count.
 ```
 
-```
+```text
 starting 8 workers needs about 0.81 GB of free RAM, only 0.42 GB is available.
 Lower the worker count.
 ```
@@ -187,7 +187,7 @@ endpoint serves a fixed whitelist only.
 A stage that dies in native code reports a code instead of an exception. On
 Windows the manager renders it in hex with a name where one is known:
 
-```
+```text
 generation exited with code 3221225477 (0xC0000005: access violation)
 ```
 
