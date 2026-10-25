@@ -48,8 +48,9 @@ are capped at `min(LAB_MAX_REQUEST_BYTES, 1 MiB)`; responses carry CSP,
 | `POST` | `/api/session` | opens a session, sets the cookie |
 | `POST` | `/api/logout` | deletes the cookie |
 
+`GET /readyz` answers:
+
 ```json
-// GET /readyz
 {"ready":true,"shutting_down":false,"busy":false,"active_run_id":null,
  "free_disk_gb":118.4,"minimum_free_disk_gb":1.0,
  "available_ram_gb":6.21,"app_version":"11.4.2"}
@@ -59,8 +60,9 @@ are capped at `min(LAB_MAX_REQUEST_BYTES, 1 MiB)`; responses carry CSP,
 `LAB_MIN_FREE_DISK_GB`. A negative disk or RAM figure means the probe failed, and
 the preflight treats unknown as acceptable rather than blocking.
 
+`GET /api/public-config` answers:
+
 ```json
-// GET /api/public-config
 {"app_version":"11.4.2","auth_required":false,
  "limits":{"min_workers":2,"max_workers":8,"max_context_tokens":1024,
   "default_context_tokens":512,"max_overlap_pct":50.0,"max_prompt_chars":12000,
