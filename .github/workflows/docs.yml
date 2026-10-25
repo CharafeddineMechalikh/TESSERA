@@ -30,15 +30,17 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          status=$(curl -s -o /dev/null -w '%{http_code}' \
+          body=$(mktemp)
+          status=$(curl -s -o "$body" -w '%{http_code}' \
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github+json" \
             "${{ github.api_url }}/repos/${{ github.repository }}/pages")
-          if [ "$status" = "200" ]; then
+          if [ "$status" = "200" ] \
+            && grep -Eq '"build_type"[[:space:]]*:[[:space:]]*"workflow"' "$body"; then
             echo "enabled=true" >> "$GITHUB_OUTPUT"
           else
             echo "enabled=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::GitHub Pages is not enabled (HTTP $status); the site is built but not deployed."
+            echo "::notice::Pages is not publishing from GitHub Actions (HTTP $status); the site is built but not deployed."
           fi
 
   build:
