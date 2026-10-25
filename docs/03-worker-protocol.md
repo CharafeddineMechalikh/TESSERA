@@ -102,7 +102,7 @@ worker never sees a half-written shard.
 No auth, no parameters.
 
 ```json
-{"status":"alive","service":"attention-worker","version":"11.4.2"}
+{"status":"alive","service":"attention-worker","version":"11.5.0"}
 ```
 
 ## GET /v1/status
@@ -113,7 +113,7 @@ token, and the session id is only returned so the coordinator can match identity
 
 ```json
 {
-  "worker_id": 0, "session_id": "...", "version": "11.4.2",
+  "worker_id": 0, "session_id": "...", "version": "11.5.0",
   "uptime_s": 12.34, "rss_mb": 71.2,
   "loaded": true, "token_count": 64, "primary_count": 17,
   "layers": [0, 1], "kv_heads": [0, 1], "head_dim": 128,

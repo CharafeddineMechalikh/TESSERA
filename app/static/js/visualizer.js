@@ -18,6 +18,7 @@
     stream: null,
     netCount: 0,
     activeTab: "pipeline",
+    activeView: "benchmark",
     startedAt: null,
     selectedUnit: 0,
     elapsedTimer: null,
@@ -157,6 +158,36 @@
     $("tabNetwork").classList.toggle("active", name === "network");
     $("pipelineLog").hidden = name !== "pipeline";
     $("networkLog").hidden = name !== "network";
+  }
+
+  // ---------------------------------------------------------------- views
+  const VIEWS = ["benchmark", "generation", "theory"];
+
+  function switchView(name) {
+    if (!VIEWS.includes(name)) return;
+    state.activeView = name;
+    VIEWS.forEach((view) => {
+      const panel = $(`tab${view[0].toUpperCase()}${view.slice(1)}`);
+      if (panel) panel.classList.toggle("active", view === name);
+    });
+    document.querySelectorAll(".nav-button[data-view]").forEach((button) => {
+      button.classList.toggle("active", button.dataset.view === name);
+    });
+    try {
+      window.sessionStorage.setItem("tessera.view", name);
+    } catch (error) {
+      // A blocked sessionStorage only costs the remembered view, not the switch itself.
+    }
+  }
+
+  function restoreView() {
+    let saved = null;
+    try {
+      saved = window.sessionStorage.getItem("tessera.view");
+    } catch (error) {
+      saved = null;
+    }
+    switchView(VIEWS.includes(saved) ? saved : "benchmark");
   }
 
   // ---------------------------------------------------------------- progress
@@ -1165,6 +1196,16 @@
     };
   }
 
+  function setButtonLabel(id, text) {
+    const button = $(id);
+    const label = button.querySelector(".btn-label");
+    if (label) {
+      label.textContent = text;
+      return;
+    }
+    button.textContent = text;
+  }
+
   async function startRun() {
     hideBanner();
     const payload = currentPayload();
@@ -1173,7 +1214,7 @@
       return;
     }
     $("runBtn").disabled = true;
-    $("runBtn").textContent = "Starting...";
+    setButtonLabel("runBtn", "Starting...");
     try {
       const data = await api("/api/runs", { method: "POST", body: payload });
       if (data && data.run) {
@@ -1193,7 +1234,7 @@
       }
       $("runBtn").disabled = false;
     } finally {
-      $("runBtn").textContent = "Run benchmark";
+      setButtonLabel("runBtn", "Run benchmark");
     }
   }
 
@@ -1373,6 +1414,9 @@
     $("clearLogs").addEventListener("click", clearLogs);
     $("tabPipeline").addEventListener("click", () => switchTab("pipeline"));
     $("tabNetwork").addEventListener("click", () => switchTab("network"));
+    document.querySelectorAll(".nav-button[data-view]").forEach((button) => {
+      button.addEventListener("click", () => switchView(button.dataset.view));
+    });
     $("logoutBtn").addEventListener("click", logout);
     $("loginForm").addEventListener("submit", submitLogin);
     $("unitSelect").addEventListener("change", (event) => {
@@ -1387,6 +1431,7 @@
   }
 
   bind();
+  restoreView();
   updateSliderLabels();
   updateReuseLabel();
   renderLoadChart(null);

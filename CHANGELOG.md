@@ -3,6 +3,26 @@
 All functional changes are recorded here. The framework version is `APP_VERSION`
 in `distributed_llm/config.py`.
 
+## 11.5.0
+
+The dashboard now has three views, with the generation output and the protocol
+formulas reachable without scrolling through the benchmark panels.
+
+- The header carries a view switcher with Benchmark, Generation, and Theory.
+  Generation holds the decoded text, the FLOP accounting, the overlap impact,
+  and the provenance note; Theory holds the block bound, the omitted-mass
+  certificate, the exact merge, and the request and response protocol.
+- The view is remembered per browser session, and the Benchmark view keeps the
+  prototype's shape: a 320 pixel control rail on the left and the analytics
+  column on the right.
+- The page scrolls as one document with a sticky header and a sticky control
+  rail, so nothing is clipped and every panel stays reachable.
+- The stylesheet no longer loads from a CDN. Icons are inline SVG and the fonts
+  are the system stacks, so the dashboard renders the same offline.
+- The run button keeps its icon while the label changes, so starting a run no
+  longer strips the control's symbol.
+- Version 11.5.0.
+
 ## 11.4.2
 
 Long decodes no longer remap the weights file for every layer, which was the
