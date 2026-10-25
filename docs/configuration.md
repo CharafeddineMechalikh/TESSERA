@@ -14,7 +14,7 @@ the effective values so the two can never silently diverge.
 | Variable | Default | Meaning |
 |---|---|---|
 | `LAB_MODEL_ID` | `Qwen/Qwen2.5-Coder-1.5B` | Snapshot to capture from and decode with |
-| `LAB_MODEL_REVISION` | `df3ce67c0e24480f20468b6ef2894622d69eb73b` | Pinned revision; the lab uses `local_files_only=True` and never downloads implicitly |
+| `LAB_MODEL_REVISION` | `df3ce67c0e24480f20468b6ef2894622d69eb73b` | Pinned revision; the framework uses `local_files_only=True` and never downloads implicitly |
 | `LAB_OUTPUT_DIR` | `./output` | Root for run directories, created at import |
 | `LAB_STORE_PROMPTS` | `false` | When false, `prompt.txt` is deleted as soon as capture and generation are done; the summary keeps only a SHA-256 |
 | `LAB_ALLOWED_HOSTS` | `127.0.0.1,localhost,::1` | HTTP `Host` allowlist, comma separated |

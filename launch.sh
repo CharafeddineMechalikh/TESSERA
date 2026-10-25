@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Launch the Distributed Attention Lab on loopback only.
+# Launch Distributed Attention on loopback only.
 #   ./launch.sh          install dependencies, then start the server
 #   ./launch.sh fast     start the server without installing dependencies
 set -euo pipefail

@@ -1,7 +1,7 @@
 # Changelog
 
-All functional changes are recorded here. The lab version is `APP_VERSION` in
-`distributed_llm/config.py`.
+All functional changes are recorded here. The framework version is `APP_VERSION`
+in `distributed_llm/config.py`.
 
 ## 11.2.0
 
@@ -88,7 +88,7 @@ monolithic Ollama forward pass.
 
 ## 10.0.0
 
-Production rewrite of the lab around measurement on real model internals.
+Production rewrite around measurement on real model internals.
 
 - Attention capture now runs in a separate process and streams one decoder layer
   at a time from the pinned Qwen2.5-Coder-1.5B snapshot, so the web server and

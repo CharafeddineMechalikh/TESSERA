@@ -228,7 +228,7 @@ true error is already under 0.1, so the protocol retains every worker and report
 disjoint control error are both 4.26e-14, which is float64 round-off, so the
 distributed path is numerically correct and the pruning idea is what fails.
 
-The lab reports this instead of relaxing the certificate, tightening `gamma`, or
-silently switching to a tolerance the data cannot meet. If you change the bound
-estimator, expect that 4.26e-14 and a mean retained fraction of 1.0 to move, and
-add a test that states which one you intend to move.
+The framework reports this instead of relaxing the certificate, tightening
+`gamma`, or silently switching to a tolerance the data cannot meet. If you change
+the bound estimator, expect that 4.26e-14 and a mean retained fraction of 1.0 to
+move, and add a test that states which one you intend to move.

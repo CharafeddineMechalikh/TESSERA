@@ -2,7 +2,7 @@
 
 ## Process model
 
-The lab is one web process, up to two model-bearing subprocesses, and two
+The framework is one web process, up to two model-bearing subprocesses, and two
 clusters of worker processes. Nothing in the web process ever imports PyTorch.
 
 | Process | Lives | Holds | Talks to |

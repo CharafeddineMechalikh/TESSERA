@@ -1,4 +1,4 @@
-"""Authentication and request guards for the local lab server."""
+"""Authentication and request guards for the local server."""
 from __future__ import annotations
 
 import hashlib

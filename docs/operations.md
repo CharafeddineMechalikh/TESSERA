@@ -136,7 +136,7 @@ flowchart TD
 | `no retained set satisfied the tolerance, including all workers` | benchmark | the certificate is unsatisfied at full retention, which is impossible by construction; a bound or correction bug |
 | `disjoint control does not match dense attention` | benchmark | partition or merge defect that the certificate cannot see; this check exists for exactly this case |
 | `soundness check failed` | benchmark | actual error exceeded certified error plus the float64 allowance; the claim is broken |
-| `model.safetensors is missing under ...` | decoder | the pinned snapshot is absent or pruned; re-download it, the lab never fetches implicitly |
+| `model.safetensors is missing under ...` | decoder | the pinned snapshot is absent or pruned; re-download it, the framework never fetches implicitly |
 | `only X GB free on the artifacts volume` | manager | `LAB_MIN_FREE_DISK_GB`, checked at run start and again before the benchmark |
 
 A generation failure fails the run. Attention numbers already computed stay in

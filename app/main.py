@@ -1,4 +1,4 @@
-"""FastAPI application for the Distributed Attention Lab.
+"""FastAPI application for Distributed Attention.
 
 The server owns no model weights. Capture runs in a subprocess, attention
 workers are spawned per run, and the dashboard only sees artifacts and events.
@@ -65,7 +65,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Distributed Attention Lab",
+    title="Distributed Attention",
+    description="Distributed LLM inference across edge devices.",
     version=APP_VERSION,
     docs_url=None,
     redoc_url=None,

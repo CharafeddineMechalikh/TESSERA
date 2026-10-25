@@ -1,17 +1,30 @@
-# Distributed Attention Lab
+# Distributed Attention
 
-A local lab that measures a distributed attention protocol on the real internals
-of **Qwen2.5-Coder-1.5B**. The browser dashboard starts a run, streams progress,
-and shows measured errors, retention decisions, FLOP accounting, logs, and
-downloadable artifacts.
+A framework for running LLM inference across edge devices. Attention is the
+first target because it is the dominant cost: its work grows quadratically with
+context length, which is exactly where a single edge device runs out of memory
+and time. This repository already captures Q/K/V from **Qwen2.5-Coder-1.5B**,
+partitions attention across independent worker processes, merges the results
+exactly, and decodes tokens through that same split. The remaining layers,
+container packaging, and multi-node orchestration are the next stages, tracked
+in the [roadmap](docs/roadmap.md).
 
-The lab is not a simulator. Every attention number it reports is computed from
-Q/K/V tensors captured from the pinned model snapshot, partitioned across real
-worker processes, and merged by the coordinator. Text generation uses a second
-worker cluster: a layer-streamed Qwen2 decoder uploads every K/V vector to the
-worker that owns its token position, sends every attention query to all workers,
-and merges the replies with an exact float64 log-sum-exp. No monolithic model
-forward pass produces the generated text.
+The intent is a working framework, not a demo. It is a side project, and the
+current deployment is deliberately one host with loopback workers so every
+number is reproducible, but nothing in the worker contract depends on that:
+workers are ordinary HTTP processes with a per-run token and no shared memory, so
+they can move to separate devices as the transport and orchestration work lands.
+
+The browser dashboard starts a run, streams progress, and shows measured errors,
+retention decisions, FLOP accounting, logs, and downloadable artifacts.
+
+The framework is not a simulator. Every attention number it reports is computed
+from Q/K/V tensors captured from the pinned model snapshot, partitioned across
+real worker processes, and merged by the coordinator. Text generation uses a
+second worker cluster: a layer-streamed Qwen2 decoder uploads every K/V vector to
+the worker that owns its token position, sends every attention query to all
+workers, and merges the replies with an exact float64 log-sum-exp. No monolithic
+model forward pass produces the generated text.
 
 ## What is measured, and what is not
 
@@ -29,10 +42,13 @@ The web server never loads PyTorch. Capture and generation run in separate
 subprocesses that exit before their worker clusters are torn down, which returns
 model memory to the operating system.
 
-## Measured result: certified pruning does not trigger on dense attention
+## Current results
 
-A full run on 2026-10-24 with 243 context tokens, 4 workers, overlap 0, and
-`epsilon = 1e-3` produced:
+Two measured runs define the present state. Both come from the machine described
+in [docs/operations.md](docs/operations.md): Windows 11, Python 3.12, CPU only.
+
+Benchmark, 2026-10-24, 243 context tokens, 4 workers, overlap 0,
+`epsilon = 1e-3`:
 
 | Metric | Value |
 |---|---|
@@ -41,11 +57,35 @@ A full run on 2026-10-24 with 243 context tokens, 4 workers, overlap 0, and
 | Disjoint control relative error | 4.26e-14 |
 | Certified error at full retention | 0.0 |
 | Mean retained fraction | 1.0 (all 4 workers retained everywhere) |
-| Net FLOP savings | -1.85 percent (overhead, not savings) |
 | Peak attention mass | 34.05 percent |
 | Attention entropy | 4.29 bits |
+| Net FLOP savings | -1.85 percent (overhead, not savings) |
+| Capture / benchmark wall | about 26 s / about 9 s |
+| Capture peak RSS | 594 MB |
 
-The retention curve for layer 0, KV head 0 shows why:
+End-to-end distributed generation, 2026-10-25, run `20261025T011641Z-run-983071bf`,
+3 workers, 1021 prompt tokens, 1000 generated tokens:
+
+| Metric | Value |
+|---|---|
+| Status / stop reason | completed / `max_new_tokens` |
+| Prefill | 169.216 s |
+| Decode | 7933.702 s, 7.93 s per token |
+| Generation total | 9188.21 s (about 2 h 33 m) |
+| Run duration | 9271.625 s |
+| Decoder peak RSS | 728.6 MB |
+| Output | 4821 characters |
+
+The merge is exact to floating point across process boundaries, and a 1000-token
+decode ran to completion with the KV cache living only on the workers. The
+remaining bottleneck is the layer-streamed decoder reloading weights for every
+token, not the distributed attention step, which is why distributing the other
+layers is the next stage.
+
+## Finding: certified pruning does not trigger on dense attention
+
+The 2026-10-24 benchmark retained all four workers in every unit at
+`epsilon = 1e-3`. The retention curve for layer 0, KV head 0 shows why:
 
 | Retained workers | Certified error | Actual relative error |
 |---|---|---|
@@ -58,8 +98,47 @@ The Cauchy-Schwarz block bound loses a factor that grows with
 `sqrt(head_dim)`. At `head_dim = 128` the bound stays above 9 even when three of
 four workers are retained and the true error is already below 0.1. The protocol
 therefore refuses to prune at strict tolerances, and the exact distributed path
-(full retention, zero overlap) is the working configuration. The lab reports
-this result instead of relaxing the certificate or hiding the overhead.
+(full retention, zero overlap) is the working configuration. The framework
+reports this result instead of relaxing the certificate or hiding the overhead.
+
+## Roadmap
+
+Three stages. The checkboxes are the todo list; [docs/roadmap.md](docs/roadmap.md)
+carries the design notes and the open questions behind them.
+
+```mermaid
+flowchart LR
+    A["attention<br/>distributed and exact<br/>done"] --> B["remaining layers<br/>pipeline parallelism<br/>next"]
+    B --> C["containers<br/>orchestration<br/>after that"]
+```
+
+### Stage 1: attention
+
+- [x] fp32 Q/K/V capture from the pinned checkpoint, verified against Hugging Face
+- [x] partitioned attention with Cauchy-Schwarz block bounds
+- [x] certified omitted-mass bound and greedy retention
+- [x] exact float64 merge with a disjoint control
+- [x] strided KV ownership and exact distributed greedy decode
+- [x] per-run process isolation, typed errors, hashed artifacts, auth, limits
+- [ ] bounds tight enough to prune at `head_dim = 128`, the measured blocker
+- [ ] overlap correction validated beyond the disjoint control
+
+### Stage 2: the rest of the layer stack
+
+- [ ] pipeline parallelism: assign layer ranges to workers and stream activations between stages
+- [ ] activation transport over the same authenticated, size-capped binary channel as KV
+- [ ] micro-batching and scheduling that keep every pipeline stage busy
+- [ ] token-for-token equivalence against the monolithic model, as attention already has
+- [ ] KV cache placement that follows the layer-owning worker
+
+### Stage 3: edge deployment
+
+- [ ] one container image per role: worker and coordinator
+- [ ] orchestration: discovery, placement, health checks, restart, drain
+- [ ] multi-host transport with TLS and per-node credentials
+- [ ] memory- and bandwidth-aware placement across heterogeneous devices
+- [ ] sampling and continuous batching beyond greedy decode
+- [ ] measurements on real edge hardware instead of loopback processes
 
 ## Documentation
 
@@ -67,6 +146,7 @@ The reference set lives in [`docs/`](docs/index.md):
 
 | Document | Covers |
 |---|---|
+| [docs/roadmap.md](docs/roadmap.md) | what runs today, what comes next, and the open questions for each stage |
 | [docs/architecture.md](docs/architecture.md) | process model, run lifecycle diagrams, stage placement, isolation boundaries |
 | [docs/worker-protocol.md](docs/worker-protocol.md) | every worker endpoint, NPZ field sets, status codes, idempotency |
 | [docs/coordinator-api.md](docs/coordinator-api.md) | HTTP API, auth modes, SSE event shapes, artifacts, error taxonomy |
@@ -160,8 +240,8 @@ active at a time.
       --revision df3ce67c0e24480f20468b6ef2894622d69eb73b
   ```
 
-  The lab uses `local_files_only=True` and refuses to run if the snapshot is
-  missing or incomplete. It never downloads weights implicitly.
+  The framework uses `local_files_only=True` and refuses to run if the snapshot
+  is missing or incomplete. It never downloads weights implicitly.
 - Capture requires `LAB_MIN_AVAILABLE_RAM_GB` (0.45 GB by default) and
   `LAB_MIN_FREE_DISK_GB` (1 GB by default). Starting the cluster additionally
   requires about 0.25 GB plus 72 MB per worker. The full 243-token run peaked at
@@ -402,7 +482,8 @@ real-model tests skip there.
   speed. Each new token reloads all 28 layers from disk, so generation is much
   slower than a resident-weight runtime. The artifacts report the measured cost.
 - Certified pruning is sound but too loose to help at `head_dim = 128` with
-  dense attention. The lab shows the measurement rather than claiming savings.
+  dense attention. The framework shows the measurement rather than claiming
+  savings.
 - Workers communicate over loopback and hold shards in memory. There is no
   transport encryption, remote deployment, or persistence beyond run artifacts.
 - One run at a time, no queue. Additional requests receive HTTP 409.
