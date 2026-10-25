@@ -534,9 +534,3 @@ real-model tests skip there.
 - Workers communicate over loopback and hold shards in memory. There is no
   transport encryption, remote deployment, or persistence beyond run artifacts.
 - One run at a time, no queue. Additional requests receive HTTP 409.
-
-## Legacy files
-
-`main.html` is the original static prototype and `folder/` plus `transformers/`
-are empty leftover directories. None of them are served or imported. They are
-kept only for reference and can be deleted safely.
