@@ -1,7 +1,7 @@
-# Configuration
+# Configuration: environment variables and limits
 
-All limits live in `distributed_llm/config.py`. Every one is environment
-overridable, parsed at import time, and then cross-checked by
+All of Tessera's limits live in `distributed_llm/config.py`. Every one is
+environment overridable, parsed at import time, and then cross-checked by
 `ensure_worker_limits_consistent`. The server refuses to start on an invalid
 combination instead of running with a limit it cannot honor.
 

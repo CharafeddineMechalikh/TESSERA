@@ -1,6 +1,7 @@
-# Numerical protocol
+# Numerical protocol: exact distributed attention
 
-Everything here lives in `distributed_llm/protocol.py`, which is pure float64
+The protocol that makes Tessera's distributed attention exact lives in
+`distributed_llm/protocol.py`, which is pure float64
 NumPy with no HTTP and no model code, precisely so the equivalence and bound
 properties can be tested directly. Workers import the kernels, the coordinator
 imports the merges, and both call the same functions.

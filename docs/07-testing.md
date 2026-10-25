@@ -1,4 +1,8 @@
-# Tests and CI
+# Tessera test suite and CI
+
+The suite proves the numerical protocol against independent oracles, the HTTP
+paths against real worker processes, and distributed decoding against
+`Qwen2ForCausalLM`. Nothing is stubbed at the model or dispatch level.
 
 ```bash
 python -m pytest                     # everything, 93 tests collected here

@@ -1,4 +1,7 @@
-# Operations
+# Operations: costs, memory admission, and failure modes
+
+This document covers running Tessera: what a run costs, how RAM admission works,
+how failures surface, and how to verify the artifacts afterwards.
 
 Measured on this machine: Windows 11, Python 3.12, CPU only, Qwen2.5-Coder-1.5B
 snapshot `df3ce67c` in the local Hugging Face cache. Treat every number here as a

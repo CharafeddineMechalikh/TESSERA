@@ -1,8 +1,8 @@
-# Architecture
+# Tessera architecture
 
 ## Process model
 
-The framework is one web process, up to two model-bearing subprocesses, and two
+Tessera is one web process, up to two model-bearing subprocesses, and two
 clusters of worker processes. Nothing in the web process ever imports PyTorch.
 
 | Process | Lives | Holds | Talks to |

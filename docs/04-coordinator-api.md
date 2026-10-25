@@ -1,8 +1,9 @@
-# Coordinator HTTP API
+# Coordinator HTTP API: runs, events, and artifacts
 
-Reference for `app/main.py` plus the run lifecycle in `distributed_llm/manager.py`.
-Base URL is always `http://127.0.0.1:<port>`. There is no OpenAPI or docs
-endpoint; both are disabled on purpose, so this file is the contract.
+Reference for Tessera's `app/main.py` and the run lifecycle in
+`distributed_llm/manager.py`. Base URL is always `http://127.0.0.1:<port>`. There
+is no OpenAPI or docs endpoint; both are disabled on purpose, so this file is the
+contract.
 
 ## Authentication
 

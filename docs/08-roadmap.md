@@ -1,4 +1,4 @@
-# Roadmap
+# Roadmap: attention, layer pipeline, and edge deployment
 
 Tessera is a side project with a framework target: run LLM inference across
 cheap, heterogeneous edge devices, starting with the part that scales worst. This

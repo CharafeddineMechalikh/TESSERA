@@ -1,8 +1,8 @@
-# Worker HTTP protocol
+# Worker HTTP protocol: attention and KV cache
 
-Reference for `distributed_llm/worker_node.py`, the isolated attention worker.
-One process serves one shard for one session on one loopback port. It never sees
-the full prompt, the model weights, or the reference output.
+Reference for `distributed_llm/worker_node.py`, Tessera's isolated attention
+worker. One process serves one shard for one session on one loopback port. It
+never sees the full prompt, the model weights, or the reference output.
 
 Clients: `cluster.py` (benchmark stage) and `gen_client.py` (generation stage).
 
