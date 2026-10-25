@@ -1,10 +1,10 @@
-# Distributed Attention: documentation
+# Tessera: documentation
 
-Distributed Attention is a framework for running LLM inference across edge
-devices. It starts where the cost is: attention work grows quadratically with
-context length, so attention is partitioned across independent workers, computed
-there, and merged exactly. The remaining layers, container packaging, and
-orchestration are the next stages, tracked in [08-roadmap.md](08-roadmap.md).
+Tessera is a framework for running LLM inference across edge devices. It starts
+where the cost is: attention work grows quadratically with context length, so
+attention is partitioned across independent workers, computed there, and merged
+exactly. The remaining layers, container packaging, and orchestration are the
+next stages, tracked in [08-roadmap.md](08-roadmap.md).
 
 Today the framework captures real Q/K/V from Qwen2.5-Coder-1.5B, benchmarks a
 certified pruning protocol over those tensors, and decodes tokens through a

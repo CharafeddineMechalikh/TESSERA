@@ -1,4 +1,4 @@
-"""FastAPI application for Distributed Attention.
+"""FastAPI application for Tessera.
 
 The server owns no model weights. Capture runs in a subprocess, attention
 workers are spawned per run, and the dashboard only sees artifacts and events.
@@ -65,7 +65,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Distributed Attention",
+    title="Tessera",
     description="Distributed LLM inference across edge devices.",
     version=APP_VERSION,
     docs_url=None,

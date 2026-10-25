@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Launch Distributed Attention on loopback only.
+# Launch Tessera on loopback only.
 #   ./launch.sh          install dependencies, then start the server
 #   ./launch.sh fast     start the server without installing dependencies
 set -euo pipefail

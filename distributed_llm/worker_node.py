@@ -239,7 +239,7 @@ def create_app(
                     pass
 
     app = FastAPI(
-        title="Distributed Attention Worker",
+        title="Tessera Worker",
         version=APP_VERSION,
         docs_url=None,
         redoc_url=None,

@@ -1,13 +1,20 @@
-# Distributed Attention
+# Tessera
 
-A framework for running LLM inference across edge devices. Attention is the
-first target because it is the dominant cost: its work grows quadratically with
-context length, which is exactly where a single edge device runs out of memory
-and time. This repository already captures Q/K/V from **Qwen2.5-Coder-1.5B**,
-partitions attention across independent worker processes, merges the results
-exactly, and decodes tokens through that same split. The remaining layers,
-container packaging, and multi-node orchestration are the next stages, tracked
-in the [roadmap](docs/08-roadmap.md).
+A tessera is one tile in a mosaic: meaningless alone, exact when set beside its
+neighbours. That is the design here. Each worker owns one tile of the
+computation, attention today and whole layer ranges later, and the coordinator
+reassembles the tiles into the same result a single machine would have produced.
+The name says nothing about attention, one host, or one network topology, so it
+should still fit once the rest of the roadmap lands.
+
+Tessera is a framework for running LLM inference across edge devices. Attention
+is the first target because it is the dominant cost: its work grows quadratically
+with context length, which is exactly where a single edge device runs out of
+memory and time. This repository already captures Q/K/V from
+**Qwen2.5-Coder-1.5B**, partitions attention across independent worker processes,
+merges the results exactly, and decodes tokens through that same split. The
+remaining layers, container packaging, and multi-node orchestration are the next
+stages, tracked in the [roadmap](docs/08-roadmap.md).
 
 The intent is a working framework, not a demo. It is a side project, and the
 current deployment is deliberately one host with loopback workers so every

@@ -1,10 +1,10 @@
 # Roadmap
 
-Distributed Attention is a side project with a framework target: run LLM
-inference across cheap, heterogeneous edge devices, starting with the part that
-scales worst. This document records what already runs, what each next stage has
-to deliver, and which questions are still open. The README carries the same
-items in short checkbox form.
+Tessera is a side project with a framework target: run LLM inference across
+cheap, heterogeneous edge devices, starting with the part that scales worst. This
+document records what already runs, what each next stage has to deliver, and
+which questions are still open. The README carries the same items in short
+checkbox form.
 
 A stage is not finished because the code exists. It is finished when the
 distributed result is verified against the monolithic result on real weights, the
