@@ -12,6 +12,8 @@
     run: null,
     summary: null,
     summaryFor: null,
+    aggregate: null,
+    aggregateRequest: null,
     lastSeq: 0,
     stream: null,
     netCount: 0,
@@ -486,6 +488,25 @@
     $("statBenchmark").textContent = "--";
     $("statCalls").textContent = "--";
     $("statRetries").textContent = "--";
+    $("accBaseline").textContent = "--";
+    $("accOnline").textContent = "--";
+    $("accPreproc").textContent = "--";
+    $("accCharged").textContent = "--";
+    $("accTotal").textContent = "--";
+    $("accOnlineSavings").textContent = "--";
+    $("accChargedSavings").textContent = "--";
+    $("accBreakEven").textContent = "--";
+    $("accountingNote").textContent = ACCOUNTING_NOTE_DEFAULT;
+    $("overlapMode").textContent = "no dual ownership";
+    $("ovCopied").textContent = "--";
+    $("ovCopies").textContent = "--";
+    $("ovExtra").textContent = "--";
+    $("ovFlops").textContent = "--";
+    $("ovControl").textContent = "--";
+    $("overlapNote").textContent = OVERLAP_NOTE_DEFAULT;
+    $("includePreproc").disabled = false;
+    updateReuseLabel();
+    $("preprocReuse").disabled = !$("includePreproc").checked;
     renderLoadChart(null);
     renderBoundsChart(null);
     renderCurveChart(null, Number($("errorTol").value));
@@ -494,8 +515,133 @@
   }
 
   // ---------------------------------------------------------------- metrics
+  const ACCOUNTING_NOTE_DEFAULT =
+    "Run a benchmark to see the bounds, softmax, merge and preprocessing terms.";
+  const OVERLAP_NOTE_DEFAULT =
+    "Set overlap above 0 to exercise dual ownership. 15% matches the original " +
+    "prototype; the control merges every copy with its log-multiplicity " +
+    "correction and compares the result against dense attention.";
+
+  function fmtPct(value) {
+    if (value === null || value === undefined || Number.isNaN(Number(value))) return "--";
+    const number = Number(value);
+    return `${number >= 0 ? "+" : ""}${number.toFixed(2)}%`;
+  }
+
+  function updateReuseLabel() {
+    const reuse = Math.max(1, Math.floor(Number($("preprocReuse").value) || 1));
+    $("reuseOut").textContent = fmtInt(reuse);
+  }
+
+  function renderAccounting(aggregate, request) {
+    if (!aggregate) return;
+    const include = $("includePreproc").checked;
+    const reuse = Math.max(1, Math.floor(Number($("preprocReuse").value) || 1));
+    const baseline = Number(aggregate.baseline_flops || 0);
+    const online = Number(aggregate.distributed_flops || 0);
+    const hasPreproc =
+      aggregate.preprocessing_flops !== undefined && aggregate.preprocessing_flops !== null;
+    const preprocessing = hasPreproc ? Number(aggregate.preprocessing_flops) : 0;
+    const charged = include ? preprocessing / reuse : 0;
+    const total = online + charged;
+    const onlineSavings = baseline > 0 ? 100 * (1 - online / baseline) : null;
+    const chargedSavings = baseline > 0 ? 100 * (1 - total / baseline) : null;
+
+    $("includePreproc").disabled = !hasPreproc;
+    $("preprocReuse").disabled = !hasPreproc || !include;
+    $("reuseOut").textContent = fmtInt(reuse);
+    $("accBaseline").textContent = fmtInt(baseline);
+    $("accOnline").textContent = fmtInt(online);
+    $("accOnlineSavings").textContent = fmtPct(onlineSavings);
+
+    if (!hasPreproc) {
+      $("accPreproc").textContent = "not recorded";
+      $("accCharged").textContent = "not recorded";
+      $("accTotal").textContent = "not recorded";
+      $("accBreakEven").textContent = "not recorded";
+      $("accChargedSavings").textContent = "--";
+      $("metricFlops").textContent = fmtPct(onlineSavings);
+      $("metricFlopsSub").textContent = "this run predates the preprocessing accounting";
+      $("accountingNote").textContent =
+        "This run's summary has no bounds-pass term. Start a new run to record it.";
+      return;
+    }
+
+    $("accPreproc").textContent = fmtInt(preprocessing);
+    $("accCharged").textContent = include ? fmtInt(Math.round(charged)) : "not charged";
+    $("accTotal").textContent = fmtInt(Math.round(total));
+    $("accChargedSavings").textContent = fmtPct(chargedSavings);
+
+    let breakEven = "not needed";
+    if (aggregate.preprocessing_break_even_runs !== null &&
+        aggregate.preprocessing_break_even_runs !== undefined) {
+      const runs = Number(aggregate.preprocessing_break_even_runs);
+      breakEven = `${fmtInt(runs)} ${runs === 1 ? "run" : "runs"}`;
+    } else if (online >= baseline) {
+      breakEven = "never";
+    }
+    $("accBreakEven").textContent = breakEven;
+
+    $("metricFlops").textContent = fmtPct(chargedSavings);
+    $("metricFlopsSub").textContent = include
+      ? `online ${fmtPct(onlineSavings)} · bounds ${fmtInt(preprocessing)} ÷ ${fmtInt(reuse)}`
+      : `online only · bounds ${fmtInt(preprocessing)} excluded`;
+    $("accountingNote").textContent = include
+      ? (reuse === 1
+          ? "The bounds pass is charged once on this run. Cached centroids and radii would let one pass serve several runs."
+          : `The bounds pass is charged once and shared by ${fmtInt(reuse)} runs, so each run pays 1/${fmtInt(reuse)} of it.`)
+      : "The bounds pass is excluded, which reproduces the online saving. Turn the charge on to include the cost of computing centroids and radii.";
+  }
+
+  function renderOverlapAccounting(aggregate, request) {
+    if (!aggregate) return;
+    const overlap = Number(request?.overlap_pct ?? $("overlap").value ?? 0);
+    const hasOverlap =
+      aggregate.extra_copies !== undefined && aggregate.extra_copies !== null;
+    $("overlapMode").textContent =
+      overlap > 0 ? `${overlap.toFixed(0)}% dual ownership` : "no dual ownership";
+    $("ovCopies").textContent = Number(aggregate.mean_copies_per_token || 1).toFixed(3);
+
+    if (!hasOverlap) {
+      $("ovCopied").textContent = "not recorded";
+      $("ovExtra").textContent = "not recorded";
+      $("ovFlops").textContent = "not recorded";
+      $("ovControl").textContent = "not recorded";
+      $("overlapNote").textContent =
+        "This run predates the overlap breakdown. Start a new run to record copies and the overlap control.";
+      return;
+    }
+
+    const copied = Number(aggregate.copied_token_fraction || 0);
+    const extra = Number(aggregate.extra_copies || 0);
+    const extraFlops = Number(aggregate.overlap_stats_extra_flops || 0);
+    const extraPct = Number(aggregate.overlap_stats_extra_pct || 0);
+    const control = aggregate.max_overlap_control_rel_error;
+
+    $("ovCopied").textContent = `${(copied * 100).toFixed(1)}%`;
+    $("ovExtra").textContent = fmtInt(extra);
+    $("ovFlops").textContent =
+      extra > 0 ? `${fmtInt(extraFlops)} (${extraPct.toFixed(2)}%)` : "0";
+    $("ovControl").textContent = control === null || control === undefined
+      ? "not run"
+      : fmtError(control);
+    $("overlapNote").textContent = overlap > 0
+      ? "Every duplicated position is corrected by log(c) before the merge. The overlap control queries every copy and must match dense attention to 1e-8."
+      : OVERLAP_NOTE_DEFAULT;
+  }
+
+  function refreshAccounting() {
+    updateReuseLabel();
+    if (state.aggregate) {
+      renderAccounting(state.aggregate, state.aggregateRequest);
+      renderOverlapAccounting(state.aggregate, state.aggregateRequest);
+    }
+  }
+
   function renderAggregate(aggregate, request) {
     if (!aggregate) return;
+    state.aggregate = aggregate;
+    state.aggregateRequest = request || null;
     const epsilon = Number(request?.error_tol ?? $("errorTol").value);
     $("metricExact").textContent = fmtError(aggregate.max_relative_error);
     $("metricExactSub").textContent =
@@ -508,10 +654,8 @@
       workers > 0 ? `${Number(aggregate.mean_retained_workers).toFixed(2)} / ${workers}` : "--";
     $("metricRetainedSub").textContent =
       `retained tokens ${(Number(aggregate.mean_retained_fraction) * 100).toFixed(1)}%`;
-    const net = Number(aggregate.net_flop_savings_pct);
-    $("metricFlops").textContent = `${net >= 0 ? "+" : ""}${net.toFixed(2)}%`;
-    $("metricFlopsSub").textContent =
-      `${fmtInt(aggregate.baseline_flops)} -> ${fmtInt(aggregate.distributed_flops)} FLOPs`;
+    renderAccounting(aggregate, request);
+    renderOverlapAccounting(aggregate, request);
     $("statMass").textContent = `${Number(aggregate.peak_attention_mass_pct).toFixed(1)}%`;
     $("statEntropy").textContent = `${Number(aggregate.attention_entropy_bits).toFixed(2)} bits`;
   }
@@ -683,6 +827,8 @@
     state.run = run;
     state.summary = null;
     state.summaryFor = null;
+    state.aggregate = null;
+    state.aggregateRequest = null;
     state.lastSeq = 0;
     state.netCount = 0;
     state.startedAt = run.started_utc || null;
@@ -1214,6 +1360,14 @@
     $("workers").addEventListener("input", updateSliderLabels);
     $("maxTokens").addEventListener("input", updateSliderLabels);
     $("overlap").addEventListener("input", updateSliderLabels);
+    $("overlapPreset").addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      $("overlap").value = "15";
+      updateSliderLabels();
+    });
+    $("includePreproc").addEventListener("change", refreshAccounting);
+    $("preprocReuse").addEventListener("input", refreshAccounting);
     $("runBtn").addEventListener("click", startRun);
     $("cancelBtn").addEventListener("click", cancelRun);
     $("clearLogs").addEventListener("click", clearLogs);
@@ -1234,6 +1388,7 @@
 
   bind();
   updateSliderLabels();
+  updateReuseLabel();
   renderLoadChart(null);
   renderBoundsChart(null);
   renderCurveChart(null, Number($("errorTol").value));

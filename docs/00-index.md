@@ -41,8 +41,12 @@ Measured on the reference machine (Windows 11, Python 3.12, CPU only):
 |---|---|
 | Exact merge error, 4 workers, 243 tokens, 56 units | 4.26e-14 relative |
 | Disjoint control error | 4.26e-14 relative |
-| Certified pruning at `head_dim = 128` | never triggers; net FLOP savings -1.85 percent |
+| Certified pruning at `head_dim = 128` | never triggers; online FLOP savings -1.85 percent, worse once the bounds pass is charged |
 | 1000-token distributed decode, 3 workers | completed, 7.93 s per token, decoder peak 728.6 MB |
+
+A separate planted-needle sweep in
+[02-protocol-math.md](02-protocol-math.md) tests whether the certificate responds
+to a known separation. It is synthetic and excluded from this table.
 
 ## The three-sentence version
 
@@ -65,3 +69,5 @@ rather than reporting a nice result.
 | Retention | The set of workers the coordinator asks for real softmax statistics after pruning on the bounds |
 | Generation window | `LAB_MAX_GENERATION_POSITIONS`, the ceiling on prompt tokens plus generated tokens |
 | Disjoint control | A merge over a different worker set that must match the dense reference to floating point |
+| Overlap control | A full-ownership merge with `-log(c)` multiplicities that must match the dense reference, which validates the overlap correction itself |
+| Planted needle | A synthetic key placed parallel to the query so its score is `log(N) + margin`. It tests the certificate's response to known separation, not model behavior |

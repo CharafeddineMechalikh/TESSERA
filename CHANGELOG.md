@@ -3,6 +3,66 @@
 All functional changes are recorded here. The framework version is `APP_VERSION`
 in `distributed_llm/config.py`.
 
+## 11.4.0
+
+Added a labeled planted-needle diagnostic and a sweep over pruning combinations,
+so the prototype's positive result can be compared with the real-prompt negative
+result on the same protocol.
+
+- Added `distributed_llm.needle`, which writes captures in the normal npz and
+  metadata schema with keys planted parallel to the query. Each needle scores
+  exactly `log(N) + margin`; all other keys and values are small isotropic noise.
+  The metadata is marked `synthetic/planted-needle`, and `needle_count = 0`
+  produces a matched control with no separated token.
+- Added `distributed_llm.scenario_sweep`, which runs a grid of needle counts,
+  margins, worker counts, overlaps, tolerances, and strategies through a fresh
+  worker cluster per cell, using the real certificate and both controls. It
+  writes `sweep.json` and a Markdown table, selects the best pruned cell by
+  charged savings and separately by online savings, and rejects a grid larger
+  than `--max-runs` instead of truncating it.
+- The needle-free control retained every worker in all 8 control cells. With one
+  needle at margin 2.5, 2 workers, and `eps = 1e-3` the certificate also retained
+  every worker; at margin 6 it retained 1 of 2. At 4 workers, margin 6, and
+  `eps = 1e-2`, it retained 1 of 4 with 76.52 percent online and 19.37 percent
+  charged savings. The real-prompt result does not change.
+- Tests cover the analytic needle score and dense mass, scenario validation,
+  capture round trip, a real-cluster planted run, the needle-free control, the
+  sweep matrix and its cap, and an end-to-end sweep selecting the planted run.
+- Version 11.4.0.
+
+## 11.3.0
+
+The benchmark now charges the bounds preprocessing pass and exercises the overlap
+correction on duplicated rows rather than only on disjoint ownership.
+
+- Added a preprocessing FLOP term, `5 * assigned_rows * head_dim` per unit, computed
+  from the rows each worker actually holds, secondary overlap copies included. It
+  is reported per unit and in aggregate, with the assigned rows and extra copies it
+  was derived from.
+- Added three reporting modes: `distributed_flops` (online), the total including one
+  bounds pass (charged), and a dashboard-side amortised figure that divides the
+  bounds pass by a reuse count. The benchmark also reports
+  `preprocessing_break_even_runs`, the smallest reuse count at which the charged
+  path beats dense attention, or `null` when the online path has no headroom.
+- Isolated the selection FLOPs spent re-reading duplicated rows as
+  `overlap_stats_extra_flops` and its share of distributed work. It decomposes the
+  existing stats term; it is not charged twice.
+- Added a full-ownership overlap control that runs when `overlap_pct > 0`: every
+  worker is queried for every copy, the merge applies the same `-log(c)`
+  multiplicities as the retained path, and the result must match dense attention
+  below `1e-8`. A mismatch raises instead of reporting a number.
+- Added a FLOP accounting and overlap impact panel to the dashboard, with an
+  include-preprocessing toggle, a reuse field, the online and charged savings, the
+  break-even reuse count, copied positions, extra rows, extra selection FLOPs, and
+  the measured overlap control error.
+- Tests now assert the per-unit preprocessing term, the charged total, the
+  break-even rule, and the overlap branch, including that a 15 percent overlap run
+  merges duplicated ownership to below `1e-10`.
+- Measured with 2 workers, 273 captured tokens, 15 percent overlap: the bounds
+  pass is 24.1 percent of the dense baseline, the overlap control matches at
+  `3.6e-14`, and the online saving is `-76.03` percent, so the charged saving is
+  worse and break-even is `never`. The negative result stands.
+
 ## 11.2.0
 
 Keyless local mode no longer asks for an API key that does not exist.

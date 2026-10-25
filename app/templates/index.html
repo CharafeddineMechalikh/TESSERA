@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tessera</title>
-<link rel="stylesheet" href="/static/css/app.css?v=12">
+<link rel="stylesheet" href="/static/css/app.css?v=13">
 </head>
 <body data-auth-required="{{ 'true' if auth_required else 'false' }}"
       data-app-version="{{ app_version }}"
@@ -50,7 +50,9 @@
       <label class="field">
         <span>Overlap <output id="overlapOut">0%</output></span>
         <input id="overlap" type="range" min="0" max="50" step="1" value="0">
-        <small>0% uses the single pass incremental selection protocol.</small>
+        <small>0% uses the single pass incremental selection protocol.
+          <button id="overlapPreset" class="link-button inline-link" type="button">use 15%</button>
+          matches the original dual-ownership prototype.</small>
       </label>
 
       <label class="field">
@@ -152,6 +154,55 @@
       <div><span>Retries</span><strong id="statRetries">--</strong></div>
     </section>
 
+    <section class="accounting">
+      <article class="panel accounting-panel">
+        <div class="panel-head">
+          <h2>FLOP accounting</h2>
+          <label class="accounting-toggle">
+            <input id="includePreproc" type="checkbox" checked>
+            <span>charge bounds preprocessing</span>
+          </label>
+        </div>
+        <dl class="accounting-grid">
+          <div><dt>Dense baseline</dt><dd id="accBaseline">--</dd></div>
+          <div><dt>Online path</dt><dd id="accOnline">--</dd></div>
+          <div><dt>Bounds pass</dt><dd id="accPreproc">--</dd></div>
+          <div><dt>Charged bounds</dt><dd id="accCharged">--</dd></div>
+          <div><dt>Total charged</dt><dd id="accTotal">--</dd></div>
+          <div><dt>Savings, online</dt><dd id="accOnlineSavings">--</dd></div>
+          <div><dt>Savings, charged</dt><dd id="accChargedSavings">--</dd></div>
+          <div><dt>Break-even reuse</dt><dd id="accBreakEven">--</dd></div>
+        </dl>
+        <label class="field accounting-reuse">
+          <span>Runs sharing one bounds pass <output id="reuseOut">1</output></span>
+          <input id="preprocReuse" type="number" min="1" max="100000" step="1" value="1">
+          <small>Cached centroids and radii turn the bounds pass into a one-off cost. The online figure excludes it entirely.</small>
+        </label>
+        <p class="accounting-note" id="accountingNote">
+          Run a benchmark to see the bounds, softmax, merge and preprocessing terms.
+        </p>
+      </article>
+
+      <article class="panel accounting-panel">
+        <div class="panel-head">
+          <h2>Overlap impact</h2>
+          <span class="panel-hint" id="overlapMode">no dual ownership</span>
+        </div>
+        <dl class="accounting-grid">
+          <div><dt>Copied positions</dt><dd id="ovCopied">--</dd></div>
+          <div><dt>Mean copies per token</dt><dd id="ovCopies">--</dd></div>
+          <div><dt>Extra rows</dt><dd id="ovExtra">--</dd></div>
+          <div><dt>Extra selection FLOPs</dt><dd id="ovFlops">--</dd></div>
+          <div><dt>Overlap control error</dt><dd id="ovControl">--</dd></div>
+        </dl>
+        <p class="accounting-note" id="overlapNote">
+          Set overlap above 0 to exercise dual ownership. 15% matches the original
+          prototype; the control merges every copy with its log-multiplicity
+          correction and compares the result against dense attention.
+        </p>
+      </article>
+    </section>
+
     <section class="charts">
       <article class="panel chart-panel">
         <div class="panel-head">
@@ -237,6 +288,6 @@
   </form>
 </div>
 
-<script src="/static/js/visualizer.js?v=16"></script>
+<script src="/static/js/visualizer.js?v=17"></script>
 </body>
 </html>

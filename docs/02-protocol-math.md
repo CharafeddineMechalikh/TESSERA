@@ -134,6 +134,33 @@ position), so a self-consistent but wrong correction cannot pass it. It is the
 check that would catch a partition bug that the certificate, which is computed
 from the same bounds that the bug corrupted, would happily certify.
 
+## Overlap control
+
+The disjoint control never sends a duplicated position, so it cannot validate the
+`-log(c)` correction. A second control runs only when `overlap_pct > 0`: the
+coordinator asks every worker for every assigned copy, merges with
+`retained_multiplicities` over the full worker set, and compares the result with
+dense attention.
+
+```
+retained     = all workers
+multiplicity = count of copies per position over the retained set
+error        = || merged(overlap) - full_out || / max(|| full_out ||, 1e-30)
+```
+
+The run fails with `BenchmarkError: overlap control does not match dense attention`
+above `1e-8`. Unlike the disjoint control, this path exercises the correction term
+on positions that really are retained twice, so a wrong multiplicity map, a
+sign error in `-log c`, or a worker that silently de-duplicates its shard stops the
+run instead of producing a plausible number. The per-unit result is recorded as
+`overlap_control_rel_error` and its cost under `overlap_control` in the stage
+timings.
+
+Both controls are verification overhead. Their query round trips are timed and
+reported, but they are not charged to `distributed_flops`, because they do not
+exist in a deployment that trusts the protocol. They are what makes trusting it
+defensible.
+
 ## Merge
 
 The merge is a two-level stable log-sum-exp. With per-worker maxima `m_w`,
@@ -203,12 +230,53 @@ where the decode continues on a broken cache.
 | bounds | `K * H * (2d + 2) + H * (2d + 1)` | per-worker dot and norm work, plus query norms |
 | stats | `H * occurrences * (4d + 3)` | real attention over retained rows, counting selection work actually performed |
 | merge | `retained * H * (2d + 1)` | weighted combination |
+| preprocessing | `5 * assigned_rows * d` | centroid and radius per unit at shard upload |
+| overlap extra | `H * duplicate_occurrences * (4d + 3)` | the part of `stats` spent on secondary copies |
+
+`preprocessing` is the offline bounds pass. A worker computes a centroid and a
+radius for every unit while it loads its shard, so the work is proportional to the
+rows it actually holds: `assigned_rows = N + extra copies`. It is reported
+separately rather than folded into `stats`, because it is the one term a real
+deployment can pay once.
 
 `savings = 100 * (1 - distributed / baseline)` per unit, and
 `net_flop_savings_pct` uses the totals across units. `occurrences` is the reason a
 pruned run can still lose: incremental selection queries each retained worker once
 in bound order, so a selection at `m = K` costs the same row count as the dense
-baseline plus the bounds stage, which is a net loss.
+baseline plus the bounds stage, which is a net loss. With overlap the requery
+protocol re-reads duplicated rows, and `overlap_stats_extra_flops` isolates that
+share. It is a decomposition of `stats`, not an additional charge.
+
+### Reporting modes for the bounds pass
+
+Three figures are reported, and the dashboard can show any of them:
+
+| Mode | Formula | When it is the honest one |
+|---|---|---|
+| online | `distributed_flops` | the bounds are already cached from a previous run |
+| charged | `distributed_flops + preprocessing_flops` | a single run pays for its own bounds |
+| amortised | `distributed_flops + preprocessing_flops / R` | `R` runs share one cached bounds pass |
+
+`net_flop_savings_with_preprocessing_pct` is the charged figure. The break-even
+reuse count is
+
+```
+B = baseline_flops
+D = distributed_flops
+P = preprocessing_flops
+R* = floor(P / (B - D)) + 1   if B > D, otherwise never
+```
+
+so `R*` is the smallest number of runs that share one bounds pass before the
+charged path beats dense attention on total FLOPs. When the online path already
+loses (`D >= B`), no reuse count can rescue it and the dashboard reports `never`.
+The benchmark emits `preprocessing_break_even_runs: null` for that case and for
+`P = 0`.
+
+Captured centroids and radii live in the worker shards for the life of a session,
+but they are not persisted across runs. There is no cross-run cache to point at, so
+the amortised figure is an accounting mode, not a measured cache hit; the default
+is `R = 1`.
 
 ## The measured result: pruning does not trigger
 
@@ -232,3 +300,50 @@ The framework reports this instead of relaxing the certificate, tightening
 `gamma`, or silently switching to a tolerance the data cannot meet. If you change
 the bound estimator, expect that 4.26e-14 and a mean retained fraction of 1.0 to
 move, and add a test that states which one you intend to move.
+
+## The planted-needle control experiment
+
+The prototype's contrast comes from its generator, not from a better estimator
+on the same data. Its scenarios place a token whose score against the query is
+`log(N) + margin`, so one token carries most of the softmax mass by construction,
+and the per-block radius is small relative to that gap. The repository now ships
+the same construction as a labeled diagnostic:
+
+```bash
+python -m distributed_llm.scenario_sweep --out-dir output/sweeps/needle
+```
+
+The generator plants keys parallel to the query, which makes each needle score
+exactly `log(N) + margin`, and draws every other key and value as small
+isotropic noise. It writes the normal capture schema, so the worker cluster,
+certificate, and both controls are the ones used on real Qwen2 tensors. It is
+still synthetic: no model produced these tensors.
+
+Measured on 2026-10-25, 64 tokens, 2 layers, 2 KV heads, 2 query heads,
+`head_dim = 8`, background and value scale 0.05, pseudorandom partition, seed 11:
+
+| Scenario | Workers | `eps` | Overlap | Retained | Certified | Relative | Online % | Charged % |
+|---|---|---|---|---|---|---|---|---|
+| no needle | 2 | 1e-3 | 0 | 2.00/2 | 0.0 | 3.9e-16 | -3.88 | -61.03 |
+| no needle | 4 | 1e-3 | 0 | 4.00/4 | 0.0 | 2.2e-16 | -7.01 | -64.15 |
+| 1 needle, margin 2.5 | 2 | 1e-3 | 0 | 2.00/2 | 0.0 | 4.1e-16 | -3.88 | -61.03 |
+| 1 needle, margin 2.5 | 4 | 1e-2 | 0 | 3.25/4 | 9.9e-3 | 1.7e-2 | 8.79 | -48.35 |
+| 1 needle, margin 6 | 2 | 1e-3 | 0 | 1.00/2 | 8.1e-4 | 1.3e-3 | 45.31 | -11.83 |
+| 1 needle, margin 6 | 4 | 1e-2 | 0 | 1.00/4 | 1.3e-3 | 2.1e-3 | 76.52 | 19.37 |
+| 1 needle, margin 6 | 4 | 1e-3 | 0 | 2.00/4 | 8.6e-4 | 1.5e-3 | 48.42 | -8.73 |
+| 1 needle, margin 6 | 4 | 1e-2 | 15 | 1.00/4 | 1.3e-3 | 2.0e-3 | 74.96 | 10.67 |
+
+The needle-free control retained every worker in all 8 control cells, so the
+certificate is not accepting arbitrary data. The margin changes the outcome
+monotonically: at margin 2.5 and `eps = 1e-3` the certificate still retains all
+workers, while at margin 6 it accepts one worker at the same tolerance. The
+prototype's collapse is therefore real but conditional. It needs enough
+separation for the chosen tolerance, and the charged figure shows that the
+bounds pass can still erase the saving. The single-run best here is margin 6,
+4 workers, overlap 0, `eps = 1e-2`: 76.52 percent online and 19.37 percent
+charged, with a certified error of 1.3e-3 and an actual relative error of 2.1e-3.
+
+That result does not move the real-prompt number above. It localizes the
+disagreement: the certificate responds when the data is separable by
+construction, and stays conservative when it is not. A sweep row is evidence
+about the pruning mechanism, never about a prompt.

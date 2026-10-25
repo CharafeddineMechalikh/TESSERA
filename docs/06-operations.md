@@ -201,6 +201,31 @@ Both CLI runners emit the same JSON-lines event protocol the manager parses, so 
 server failure and a CLI failure carry the same taxonomy. `--allow-truncation`
 exists for offline analysis of oversized captures and is never used by the server.
 
+## Screening pruning on planted-needle data
+
+The prototype's scenarios planted tokens whose score is `log(N) + 2.5`, which
+makes block separability a property of the data rather than of attention. The
+same experiment is available as a labeled synthetic diagnostic:
+
+```bash
+python -m distributed_llm.needle --out-dir output/needle --needles 1 --margin 6
+python -m distributed_llm.scenario_sweep --out-dir output/sweeps/needle
+```
+
+The first command writes a capture in the same npz and metadata schema as
+`capture_runner`, so `benchmark_runner` can run it unchanged. The second expands
+a grid of needle counts, margins, worker counts, overlaps, tolerances, and
+strategies, gives every cell a fresh worker cluster, and writes `sweep.json` plus
+`sweep.md`. The default grid is 24 runs; `--max-runs` refuses a grid that grows
+past the cap instead of silently truncating it.
+
+`needles=0` is the control. It has the same shapes, value scale, and block
+geometry but no deliberately separated token, so it should retain every worker.
+The sweep records the control outcome as `control.runs` and `control.unpruned`.
+A positive row proves that the certificate responds to a known separation; it is
+not evidence that a real prompt will prune. The real-prompt result remains the
+one in [02-protocol-math.md](02-protocol-math.md).
+
 ## Cancellation
 
 `POST /api/runs/{id}/cancel` sets the run's cancel event. The benchmark checks it

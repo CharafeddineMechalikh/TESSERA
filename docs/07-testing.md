@@ -1,13 +1,13 @@
 # Tests and CI
 
 ```bash
-python -m pytest                     # everything, 78 tests collected here
+python -m pytest                     # everything, 87 tests collected here
 python -m pytest -m "not integration" -q   # skip cluster-spawning tests
 python -m pytest -m "not real_model" -q    # skip the pinned-snapshot tests
 python -m pytest tests/test_protocol.py -q
 ```
 
-78 tests collect on this machine: 66 with no marker, 3 marked `real_model`, 10
+87 tests collect on this machine: 73 with no marker, 3 marked `real_model`, 12
 marked `integration` (one test carries both markers, so the marked sets overlap).
 `pytest.ini` sets `testpaths = tests`, declares both markers, and ignores
 `DeprecationWarning`.
@@ -21,7 +21,8 @@ marked `integration` (one test carries both markers, so the marked sets overlap)
 | `test_app.py` | 17 | signer round trip and expiry, login lockout, security headers and cookie on `/`, `/api` auth, cross-origin POST rejection, same-origin acceptance, request validation, public-config limits, the 1000-token default, keyless re-issue versus key mode rejection, host guard, one active run, invalid config, event-stream replay and its bound |
 | `test_config_limits.py` | 7 | the validator rules in [05-configuration.md](05-configuration.md), including that the capture context limit is untouched by the generation defaults |
 | `test_generation_artifact.py` | 5 | manager-side validation of `generation.json`, parametrized rejections, missing or malformed artifact, and the `not_run` versus `failed` distinction in failure summaries |
-| `test_benchmark.py` | 3 | full orchestration on a synthetic capture: exact at strict tolerance, single-worker selection at loose tolerance, and overlap re-query exactness at full retention |
+| `test_benchmark.py` | 3 | full orchestration on a synthetic capture: exact at strict tolerance, single-worker selection at loose tolerance, and overlap re-query exactness at full retention; every run also checks the preprocessing and overlap terms against the partition, the charged total, the break-even rule, and that a 15 percent overlap run's full-ownership merge matches dense attention below `1e-10` |
+| `test_needle.py` | 9 | the planted-needle generator's scores and dense mass, scenario validation, capture round trip, a real-cluster run that prunes 1 of 2 workers on the plant, the needle-free control retaining both, sweep matrix expansion and the run cap, and an end-to-end sweep that keeps the control unpruned and selects the planted run |
 | `test_cluster.py` | 2 | real process lifecycle: spawn workers, upload shards, query, merge, tear down; plus generation admission charging the strided KV total once |
 | `test_capture_equivalence.py` | 2 | the capture path reproduces Hugging Face `Qwen2Attention` and `Qwen2DecoderLayer` on a tiny random Qwen2 built in the test |
 | `test_generation_equivalence.py` | 3 | distributed greedy decoding matches `Qwen2ForCausalLM` exactly at 2 and 3 workers, the runner emits real distributed tokens, and a capture token mismatch is rejected |
@@ -43,6 +44,12 @@ implementation rather than self-consistency:
 | distributed merge | dense attention on the same captured arrays |
 | capture and decoder math | Hugging Face `Qwen2` modules |
 | generated tokens | `Qwen2ForCausalLM.generate` greedy, token for token |
+
+The planted-needle suite is a diagnostic, not a replacement for those oracles.
+Its captures are labeled `synthetic/planted-needle` and its scenarios have an
+analytic score by construction, so it can assert that the certificate reacts to
+known separation. It cannot assert that a real prompt will prune, and the two
+real-model suites remain the evidence for that.
 
 `real_model` tests skip when the pinned snapshot is not in the local Hugging Face
 cache, which is why CI is green without a 3.1 GB download. `integration` tests

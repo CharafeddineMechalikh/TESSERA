@@ -7,6 +7,7 @@ the overlap requery path, and the certificate without the 1.5B model.
 from __future__ import annotations
 
 import json
+import math
 
 import numpy as np
 import pytest
@@ -100,9 +101,48 @@ def _run(tmp_path, config, threshold):
             assert len(row["retention_curve"]) >= 1
             assert row["retention_curve"][-1]["retained_workers"] == row["retained_worker_count"]
             assert len(row["retention_curve"]) <= config.workers
+            assert row["preprocessing_flops"] == 5 * payload["aggregate"]["assigned_rows"] * HEAD_DIM
+            assert row["overlap_stats_flops"] >= 0
     assert payload["aggregate"]["max_certified_error"] <= threshold
     assert payload["config"]["selection_protocol"] in {"incremental", "requery"}
+    _check_accounting(payload, config)
     return payload
+
+
+def _check_accounting(payload, config):
+    aggregate = payload["aggregate"]
+    units = NUM_LAYERS * NUM_KV
+    assigned_rows = int(sum(payload["partition"]["positions_per_worker"]))
+    assert aggregate["assigned_rows"] == assigned_rows
+    assert aggregate["extra_copies"] == assigned_rows - N_TOKENS
+    assert aggregate["preprocessing_flops"] == units * 5 * assigned_rows * HEAD_DIM
+    assert aggregate["total_flops_with_preprocessing"] == (
+        aggregate["distributed_flops"] + aggregate["preprocessing_flops"]
+    )
+    assert (
+        aggregate["net_flop_savings_with_preprocessing_pct"]
+        < aggregate["net_flop_savings_pct"]
+    )
+    headroom = aggregate["baseline_flops"] - aggregate["distributed_flops"]
+    if headroom > 0:
+        assert aggregate["preprocessing_break_even_runs"] == (
+            math.floor(aggregate["preprocessing_flops"] / headroom) + 1
+        )
+    else:
+        assert aggregate["preprocessing_break_even_runs"] is None
+
+    if config.overlap_pct > 0.0:
+        assert aggregate["extra_copies"] > 0
+        assert aggregate["copied_token_fraction"] > 0.0
+        assert aggregate["mean_copies_per_token"] > 1.0
+        assert aggregate["overlap_stats_extra_flops"] > 0
+        assert aggregate["max_overlap_control_rel_error"] is not None
+        assert aggregate["max_overlap_control_rel_error"] < 1e-10
+    else:
+        assert aggregate["extra_copies"] == 0
+        assert aggregate["copied_token_fraction"] == 0.0
+        assert aggregate["overlap_stats_extra_flops"] == 0
+        assert aggregate["max_overlap_control_rel_error"] is None
 
 
 def test_benchmark_exact_when_tolerance_is_strict(tmp_path):

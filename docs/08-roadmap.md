@@ -18,12 +18,13 @@ documented.
 | Attention capture | fp32 Q/K/V from the pinned snapshot, streamed one layer at a time, verified against Hugging Face |
 | Partitioned attention | hash or contiguous chunks, optional overlap, Cauchy-Schwarz block bounds |
 | Certified pruning | omitted-mass certificate, greedy retention, safety factor, disjoint control |
+| Accounting | online, charged, and amortised bounds pass; overlap extra stats; full-ownership overlap control |
 | Exact merge | float64 log-sum-exp with multiplicity correction |
 | Distributed decode | strided KV ownership, per-unit caches, per-worker causal mask, exact merge |
 | Run isolation | fresh ports, session ids, bearer tokens and worker processes per run |
 | Artifacts | request, capture, benchmark, cluster, generation, events, SHA-256 manifest |
 | API and dashboard | loopback-only FastAPI, SSE with replay, two auth modes, artifact whitelist |
-| Tests | 78 collected, oracles against dense attention and `Qwen2ForCausalLM` |
+| Tests | 87 collected, oracles against dense attention and `Qwen2ForCausalLM`, plus a planted-needle diagnostic |
 
 Measured on the reference machine (Windows 11, Python 3.12, CPU only):
 
@@ -31,7 +32,7 @@ Measured on the reference machine (Windows 11, Python 3.12, CPU only):
 |---|---|
 | Exact merge error, 4 workers, 243 tokens, 56 units | 4.26e-14 relative |
 | Disjoint control error | 4.26e-14 relative |
-| Certified pruning at `head_dim = 128` | never triggers; net FLOP savings -1.85 percent |
+| Certified pruning at `head_dim = 128` | never triggers; online FLOP savings -1.85 percent, worse once the bounds pass is charged |
 | 1000-token distributed decode, 3 workers | completed, 7.93 s per token, decoder peak 728.6 MB |
 
 What is not distributed yet: only attention runs on the workers. The decoder
@@ -50,10 +51,18 @@ stays at 9.617 while the actual relative error falls to 0.082 with three of four
 workers retained, so the certificate refuses to prune and the net FLOP saving is
 negative. Tighter bounds are the first todo.
 
+The prototype's positive pruning result came from planted needles scored at
+`log(N) + margin`, not from a tighter bound. The repository now reproduces that
+as a labeled synthetic sweep (`python -m distributed_llm.scenario_sweep`). It
+confirms the certificate responds to genuine separation and retains everything
+on the needle-free control, but it does not change the real-prompt result. Any
+future bound work still has to move the 9.617 or the retained fraction on
+captured Qwen2 tensors, not on the plant.
+
 - [ ] a bound tight enough to prune at `head_dim = 128`, computed from the same
       per-block metadata the coordinator already receives
 - [ ] retention that produces a positive net FLOP saving, measured, not asserted
-- [ ] the overlap correction exercised beyond the disjoint control
+- [x] the overlap correction exercised beyond the disjoint control
 - [ ] pruning applied inside the decode path, which currently decodes at full
       retention
 

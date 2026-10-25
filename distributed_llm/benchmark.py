@@ -230,6 +230,14 @@ def run_benchmark(
     )
     primary = primary_worker(n_tokens, config.workers, config.strategy, config.seed)
     copies_per_token = counts.astype(np.int64)
+    assigned_rows = int(copies_per_token.sum())
+    extra_copies = assigned_rows - n_tokens
+    copied_token_fraction = float(np.mean(copies_per_token > 1))
+    # Each worker computes a centroid and radius per unit while loading its
+    # shard, so the bounds pass costs about 5 * rows * d per unit. Rows include
+    # secondary copies, and the term is reported separately because the
+    # dashboard can charge it once, amortise it, or exclude it.
+    preprocessing_flops_per_unit = 5 * assigned_rows * head_dim
 
     if event_cb:
         event_cb(
@@ -266,7 +274,16 @@ def run_benchmark(
     peak_masses: List[float] = []
     entropies: List[float] = []
     tolerance_ok = True
-    stage_ms: Dict[str, float] = {"bounds": 0.0, "prune": 0.0, "final": 0.0, "control": 0.0}
+    stage_ms: Dict[str, float] = {
+        "bounds": 0.0,
+        "prune": 0.0,
+        "final": 0.0,
+        "control": 0.0,
+        "overlap_control": 0.0,
+    }
+    total_preprocessing_flops = 0
+    total_overlap_stats_flops = 0
+    max_overlap_control_error: Optional[float] = None
     # With unique ownership every worker's local statistics are final, so the
     # coordinator can query workers one at a time in bound order and reuse the
     # accumulated statistics. With overlap the correction for a position can
@@ -309,6 +326,7 @@ def run_benchmark(
             accumulated_sumexp: List[np.ndarray] = []
             accumulated_outs: List[np.ndarray] = []
             selection_stats_occurrences = 0
+            selection_duplicate_occurrences = 0
             for m in range(1, config.workers + 1):
                 _check_cancel(cancel_event)
                 stage_started = time.perf_counter()
@@ -335,6 +353,9 @@ def run_benchmark(
                 stage_ms["prune"] += (time.perf_counter() - stage_started) * 1000.0
 
                 held = _retained_positions(assignments, retained)
+                if not incremental:
+                    queried_rows = sum(len(assignments[w]) for w in retained)
+                    selection_duplicate_occurrences += queried_rows - int(len(held))
                 omitted = np.zeros(heads, dtype=np.float64)
                 certified = np.zeros(heads, dtype=np.float64)
                 if m < config.workers:
@@ -417,15 +438,53 @@ def run_benchmark(
                     f"kv {kv_head}: relative error {control_error:.3e}"
                 )
 
+            # The disjoint control never sends a duplicated position, so it
+            # cannot validate the -log(c) overlap correction. This control asks
+            # every worker for every copy and merges them with the same
+            # multiplicities the retained path uses.
+            overlap_control_error: Optional[float] = None
+            if config.overlap_pct > 0.0:
+                overlap_started = time.perf_counter()
+                _check_cancel(cancel_event)
+                every_worker = list(range(config.workers))
+                overlap_multiplicities = retained_multiplicities(assignments, every_worker)
+                o_lmax, o_sumexp, o_out, _ = cluster.stats(
+                    layer, kv_head, q, overlap_multiplicities, "assigned", every_worker
+                )
+                overlap_out, _, _ = merge_worker_stats(o_lmax, o_sumexp, o_out)
+                overlap_control_error = float(
+                    np.max(
+                        np.linalg.norm(overlap_out - full_out, axis=1)
+                        / np.maximum(reference_norms, 1e-30)
+                    )
+                )
+                stage_ms["overlap_control"] += (time.perf_counter() - overlap_started) * 1000.0
+                if overlap_control_error > 1e-8:
+                    raise BenchmarkError(
+                        f"overlap control does not match dense attention at layer {layer} "
+                        f"kv {kv_head}: relative error {overlap_control_error:.3e}"
+                    )
+                max_overlap_control_error = (
+                    overlap_control_error
+                    if max_overlap_control_error is None
+                    else max(max_overlap_control_error, overlap_control_error)
+                )
+
             baseline_flops = heads * n_tokens * (4 * head_dim + 3)
             bounds_flops = config.workers * heads * (2 * head_dim + 2) + heads * (2 * head_dim + 1)
             stats_flops = heads * selection_stats_occurrences * (4 * head_dim + 3)
             merge_flops = len(retained) * heads * (2 * head_dim + 1)
             distributed_flops = bounds_flops + stats_flops + merge_flops
             savings = 100.0 * (1.0 - distributed_flops / baseline_flops)
+            preprocessing_flops = preprocessing_flops_per_unit
+            overlap_stats_flops = (
+                heads * selection_duplicate_occurrences * (4 * head_dim + 3)
+            )
 
             total_baseline_flops += baseline_flops
             total_distributed_flops += distributed_flops
+            total_preprocessing_flops += preprocessing_flops
+            total_overlap_stats_flops += overlap_stats_flops
             max_relative_error = max(max_relative_error, float(relative.max()))
             max_certified_error = max(max_certified_error, float(certified.max()))
             max_actual_error = max(max_actual_error, float(actual.max()))
@@ -444,6 +503,9 @@ def run_benchmark(
                 "retained_unique_tokens": int(len(held)),
                 "retained_token_occurrences": retained_occurrences,
                 "selection_stats_occurrences": int(selection_stats_occurrences),
+                "selection_unique_occurrences": int(
+                    selection_stats_occurrences - selection_duplicate_occurrences
+                ),
                 "total_tokens": n_tokens,
                 "retained_fraction": len(held) / n_tokens,
                 "block_bounds": bounds.tolist(),
@@ -458,8 +520,11 @@ def run_benchmark(
                 "merge_flops": int(merge_flops),
                 "baseline_flops": int(baseline_flops),
                 "distributed_flops": int(distributed_flops),
+                "preprocessing_flops": int(preprocessing_flops),
+                "overlap_stats_flops": int(overlap_stats_flops),
                 "flop_savings_pct": savings,
                 "disjoint_control_rel_error": control_error,
+                "overlap_control_rel_error": overlap_control_error,
                 "peak_attention_mass_pct": float(probs.max(axis=1).mean() * 100.0),
                 "attention_entropy_bits": float(
                     np.mean(-np.sum(probs * np.log(np.maximum(probs, 1e-300)), axis=1)) / math.log(2.0)
@@ -523,18 +588,46 @@ def run_benchmark(
 
     benchmark_s = time.perf_counter() - started
     net_savings = 100.0 * (1.0 - total_distributed_flops / total_baseline_flops)
+    total_with_preprocessing = total_distributed_flops + total_preprocessing_flops
+    net_savings_with_preprocessing = 100.0 * (
+        1.0 - total_with_preprocessing / total_baseline_flops
+    )
+    online_headroom = total_baseline_flops - total_distributed_flops
+    # Smallest number of runs sharing one bounds pass for the preprocessing
+    # charge to stop deciding the sign. None means no finite reuse can help:
+    # the online path already costs at least as much as dense attention.
+    break_even_reuse = (
+        int(math.floor(total_preprocessing_flops / online_headroom)) + 1
+        if online_headroom > 0 and total_preprocessing_flops > 0
+        else None
+    )
     aggregate = {
         "max_relative_error": max_relative_error,
         "max_actual_l2_error": max_actual_error,
         "max_certified_error": max_certified_error,
         "tolerance_satisfied": tolerance_ok,
         "max_disjoint_control_rel_error": max_control_error,
+        "max_overlap_control_rel_error": max_overlap_control_error,
         "mean_flop_savings_pct": float(
             np.mean([row["flop_savings_pct"] for layer in layers_payload for row in layer["kv_heads"]])
         ),
         "net_flop_savings_pct": net_savings,
+        "net_flop_savings_with_preprocessing_pct": net_savings_with_preprocessing,
         "baseline_flops": int(total_baseline_flops),
         "distributed_flops": int(total_distributed_flops),
+        "preprocessing_flops": int(total_preprocessing_flops),
+        "preprocessing_share_pct": 100.0 * total_preprocessing_flops / total_baseline_flops,
+        "preprocessing_break_even_runs": break_even_reuse,
+        "total_flops_with_preprocessing": int(total_with_preprocessing),
+        "overlap_stats_extra_flops": int(total_overlap_stats_flops),
+        "overlap_stats_extra_pct": (
+            100.0 * total_overlap_stats_flops / total_distributed_flops
+            if total_distributed_flops > 0
+            else 0.0
+        ),
+        "assigned_rows": int(assigned_rows),
+        "extra_copies": int(extra_copies),
+        "copied_token_fraction": copied_token_fraction,
         "mean_retained_fraction": float(np.mean(retained_fractions)),
         "mean_retained_workers": float(np.mean(retained_worker_counts)),
         "mean_copies_per_token": float(copies_per_token.mean()),
@@ -556,8 +649,18 @@ def run_benchmark(
                 "baseline H*N*(4d+3); bounds K*H*(2d+2)+H*(2d+1) for the query "
                 "norms; stats occurrences*H*(4d+3); merge retained_workers*H*(2d+1). "
                 "Selection work actually performed is included in stats for the "
-                "requery protocol."
+                "requery protocol, and rows duplicated by overlap are reported "
+                "separately as overlap_stats_flops. Bounds preprocessing is "
+                "5*assigned_rows*d per unit, reported separately so it can be "
+                "charged once, amortised over reused bounds, or excluded from the "
+                "online figure."
             ),
+            "accounting": {
+                "preprocessing_flops_per_unit": "5 * assigned_rows * head_dim",
+                "assigned_rows": int(assigned_rows),
+                "extra_copies": int(extra_copies),
+                "bounds_preprocessing_in_net_flop_savings": False,
+            },
         },
         "geometry": geometry.as_dict(),
         "token_count": n_tokens,

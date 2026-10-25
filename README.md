@@ -4,8 +4,6 @@ A tessera is one tile in a mosaic: meaningless alone, exact when set beside its
 neighbours. That is the design here. Each worker owns one tile of the
 computation, attention today and whole layer ranges later, and the coordinator
 reassembles the tiles into the same result a single machine would have produced.
-The name says nothing about attention, one host, or one network topology, so it
-should still fit once the rest of the roadmap lands.
 
 Tessera is a framework for running LLM inference across edge devices. Attention
 is the first target because it is the dominant cost: its work grows quadratically
@@ -25,13 +23,15 @@ they can move to separate devices as the transport and orchestration work lands.
 The browser dashboard starts a run, streams progress, and shows measured errors,
 retention decisions, FLOP accounting, logs, and downloadable artifacts.
 
-The framework is not a simulator. Every attention number it reports is computed
-from Q/K/V tensors captured from the pinned model snapshot, partitioned across
-real worker processes, and merged by the coordinator. Text generation uses a
-second worker cluster: a layer-streamed Qwen2 decoder uploads every K/V vector to
-the worker that owns its token position, sends every attention query to all
-workers, and merges the replies with an exact float64 log-sum-exp. No monolithic
-model forward pass produces the generated text.
+The framework is not a simulator. Every attention number it reports in the
+dashboard and the results below is computed from Q/K/V tensors captured from the
+pinned model snapshot, partitioned across real worker processes, and merged by
+the coordinator. A separate, labeled synthetic sweep tests the pruning mechanism
+on planted data; it never feeds the dashboard or the results table. Text
+generation uses a second worker cluster: a layer-streamed Qwen2 decoder uploads
+every K/V vector to the worker that owns its token position, sends every
+attention query to all workers, and merges the replies with an exact float64
+log-sum-exp. No monolithic model forward pass produces the generated text.
 
 ## What is measured, and what is not
 
@@ -41,7 +41,7 @@ model forward pass produces the generated text.
 | Attention capture fidelity | Verified against Hugging Face `Qwen2DecoderLayer` in tests |
 | Token partition, block bounds, retention, distributed merge | Executed over loopback HTTP workers, one isolated process per worker |
 | Reference attention | Dense computation on the captured arrays on the coordinator |
-| Reported relative error and certified error | Computed per layer and KV head, with a disjoint control run |
+| Reported relative error and certified error | Computed per layer and KV head, with disjoint and overlap controls |
 | Text generation | Greedy decoding through a second worker cluster; KV cache lives on the workers, every layer is evaluated there |
 | Generated-token fidelity | Verified token-for-token against `Qwen2ForCausalLM` greedy decoding on a tiny Qwen2 model |
 
@@ -108,6 +108,33 @@ therefore refuses to prune at strict tolerances, and the exact distributed path
 (full retention, zero overlap) is the working configuration. The framework
 reports this result instead of relaxing the certificate or hiding the overhead.
 
+### Why the prototype pruned
+
+The prototype's scenarios plant a token whose score against the query is
+`log(N) + margin`. That is a property of the generator, not of attention. The
+repository now reproduces the construction as a labeled synthetic diagnostic:
+
+```bash
+python -m distributed_llm.scenario_sweep --out-dir output/sweeps/needle
+```
+
+Every combination runs through a fresh worker cluster and the real certificate.
+Measured at 64 tokens, one needle, `epsilon = 1e-3`, overlap 0, pseudorandom:
+
+| Margin | Workers | Retained | Certified | Online % | Charged % |
+|---|---|---|---|---|---|
+| no needle | 4 | 4.00/4 | 0.0 | -7.01 | -64.15 |
+| 2.5 | 2 | 2.00/2 | 0.0 | -3.88 | -61.03 |
+| 6 | 2 | 1.00/2 | 8.1e-4 | 45.31 | -11.83 |
+| 6 | 4 | 2.00/4 | 8.6e-4 | 48.42 | -8.73 |
+
+The needle-free control retained every worker in all 8 control cells, so the
+certificate is not accepting arbitrary data. The collapse belongs to the planted
+scenario, and the charged column shows that one bounds pass can still erase the
+saving. The real-prompt result above is unchanged. Details and the full grid are
+in [docs/02-protocol-math.md](docs/02-protocol-math.md) and
+[docs/06-operations.md](docs/06-operations.md).
+
 ## Roadmap
 
 Three stages. The checkboxes are the todo list; [docs/08-roadmap.md](docs/08-roadmap.md)
@@ -128,7 +155,7 @@ flowchart LR
 - [x] strided KV ownership and exact distributed greedy decode
 - [x] per-run process isolation, typed errors, hashed artifacts, auth, limits
 - [ ] bounds tight enough to prune at `head_dim = 128`, the measured blocker
-- [ ] overlap correction validated beyond the disjoint control
+- [x] overlap correction validated beyond the disjoint control
 
 ### Stage 2: the rest of the layer stack
 
